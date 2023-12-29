@@ -67,10 +67,19 @@ def main():
                 # update chat history
                 st.session_state.messages = st.session_state.agents.parse_chat_history_into_streamlit_chat_format()
 
+                st.session_state.instructions = ""
+
         # show instruction 
         st.subheader("Instructions")
-        st.markdown(st.session_state.instructions if st.session_state.instructions != "" else "None")
 
+        # ***************************************************************************
+        #***************** TODO : MUST FIX HERE *************************************
+        # ***************************************************************************
+
+        # update instaruction
+        st.session_state.instructions = st.session_state.agents.get_instruction_latest_history()
+
+        st.write(f"{st.session_state.instructions}")
 
 
 
@@ -101,6 +110,7 @@ def main():
 
     
         st.session_state.messages.append({"role": "assistant", "content": full_response})
+
 
 
 if __name__ == "__main__":

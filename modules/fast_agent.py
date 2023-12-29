@@ -42,10 +42,10 @@ class Fast_Agents:
         """
 
         # make a chain for fast_and_slow agent system
-        #gpt4_model = ChatOpenAI(model="gpt-4-1106-preview")
-        gpt3_5_turbo_model = ChatOpenAI(model="gpt-3.5-turbo")
-        #model_paser = gpt4_model | StrOutputParser()
-        model_paser = gpt3_5_turbo_model | StrOutputParser()
+        gpt4_model = ChatOpenAI(model="gpt-4-1106-preview")
+        #gpt3_5_turbo_model = ChatOpenAI(model="gpt-3.5-turbo")
+        model_paser = gpt4_model | StrOutputParser()
+        #model_paser = gpt3_5_turbo_model | StrOutputParser()
 
 
         fast_and_slow_prompt = ChatPromptTemplate.from_messages(
@@ -55,6 +55,7 @@ class Fast_Agents:
                     ("user", "{input}"),
                 ]
             )
+        
 
         memory_for_fast_and_slow = ConversationBufferMemory(return_messages=True)
         memory_for_fast_and_slow.save_context({"input": ""}, {"output": "こんにちわ。いかがなさいましたか？"})
@@ -75,6 +76,7 @@ class Fast_Agents:
                     ("user", "{input}"),
                 ]
             )
+
 
         gpt4_CoT_response_prompt = ChatPromptTemplate.from_messages(
                 [
@@ -102,6 +104,16 @@ class Fast_Agents:
 
             return {"history": mem}
 
+        def _save_instruction(_dict : dict):
+            memory_for_gpt4_CoT_instruction.save_context({"input" : _dict["input"]}, {"output": _dict["instruction"]})
+
+            return _dict
+
+
+
+        def debug_print(_str : str):
+            print("*"*5 +  + _str + "*"*5 + "\n\n")
+            return _str
 
         gpt4_CoT_pander_chain = (
             RunnablePassthrough.assign(
@@ -109,28 +121,19 @@ class Fast_Agents:
             )
             | gpt4_CoT_pander_prompt 
             | model_paser
+            #| RunnableLambda(debug_print)
         )
-
-        # *************************************************************************:
-        # ********************************* TO FIX *******************************:
-        # *************************************************************************:
-
-        def _save_instruction(_dict : dict):
-            self.instructions = _dict["instruction"]
-            print("*"*20)
-            print(f'gen instruction is fin : {_dict["instruction"]}')
-            memory_for_gpt4_CoT_instruction.save_context({"input": _dict["input"]}, {"output": _dict["instruction"]})
-            return _dict
 
 
         gpt4_CoT_chain = (
-            RunnablePassthrough.assign(
+            {"instruction" : gpt4_CoT_pander_chain, "input" : itemgetter("input")} 
+            | RunnableLambda(_save_instruction)
+            | RunnablePassthrough.assign(
                 history=RunnableLambda(_get_CoT_whole_mem) | itemgetter("history")
             )
-            | {"instruction" : gpt4_CoT_pander_chain, "input" : itemgetter("input")} 
-            | RunnableLambda(_save_instruction)
             | gpt4_CoT_response_prompt 
             | model_paser
+            #| RunnableLambda(debug_print)
         )
 
         # make a chain for gpt4 agent system
@@ -165,7 +168,7 @@ class Fast_Agents:
             },
             {
                 "data" : {
-                    "chain": gpt4_CoT_pander_chain, 
+                    "chain": gpt4_CoT_chain, 
                     "memory": memory_for_gpt4_CoT_main,
                     "memory_instruction" : memory_for_gpt4_CoT_instruction,
                 },
@@ -221,6 +224,27 @@ class Fast_Agents:
 
 
         return streamlit_chat_history
+
+
+    def get_instruction_latest_history(self) -> str:
+        """
+        get instruction of the current chain
+
+        Returns
+        -------
+        instruction : str
+            instruction of the current chain
+        """
+
+        if not self.current_chain_with_mem["is_multi_mem"]:
+            return ""
+        
+        instruction_history = messages_to_dict(self.current_chain_with_mem["data"]["memory_instruction"].load_memory_variables({})["history"])
+
+        if len(instruction_history) == 0:
+            return ""
+
+        return instruction_history[-1]["data"]["content"]
 
 
         
