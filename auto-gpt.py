@@ -181,14 +181,14 @@ def main():
 
 
     # init llm
-    llm = OpenAI(temperature=0)
+    llm = OpenAI(temperature=0, model="gpt-4-1106-preview")
 
     # load google search tool
     tools = load_tools(["serpapi"], llm=llm)
 
     auto_gpt = AutoGPT.from_llm_and_tools(
-        ai_name="介助者",
-        ai_role="認知症患者の生活における意思決定支援や不安解消を行う情緒的なケアギバー",
+        ai_name="認知症サポーター",
+        ai_role="認知症患者の生活における意思決定支援や不安解消を行う情緒的なケアを行うエージェント",
         memory=memory,
         tools=tools,
         llm=llm,
@@ -197,7 +197,7 @@ def main():
     # Set verbose to be true
     auto_gpt.chain.verbose = True
 
-    auto_gpt.run(goals=["これなんか閉まらないに対応する"])
+    auto_gpt.run(goals=["対話の履歴から、適切な問題を設定する。", "よりよい応答のの方向性の決定を行う。"])
 
 
 
