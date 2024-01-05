@@ -3,7 +3,7 @@ venv
 
 .env
 
-./sample_code.txt
+sample_code.txt
 
 result
 
