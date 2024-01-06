@@ -1,6 +1,6 @@
 from langchain.tools.base import BaseTool
 
-class pander_dialog_state(BaseTool):
+class Pander_Dialog_State(BaseTool):
     """Tool that pander and analize current dialog state to conduct better instruction."""
 
     name = "pander_dialog_state"
@@ -17,4 +17,8 @@ class pander_dialog_state(BaseTool):
 
     async def _arun(self, goal_of_dialog_analyze : str) -> str:
         return self._run(goal_of_dialog_analyze)
+
+    @classmethod
+    def get_tool_name(cls) -> str:
+        return cls.name
 
