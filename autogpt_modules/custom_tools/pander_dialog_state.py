@@ -6,12 +6,13 @@ class Pander_Dialog_State(BaseTool):
     name = "pander_dialog_state"
     description = (
         "Tool that pander and analyze current dialog state to conduct better instruction."
-        "Input shold be a string goal_of_dialog_analyze to pander and dive into that."
+        "Input shold be a string goal_of_dialog_analyze to pander and dive into that and a string dialog_data that is buffer so please set (略)."
+        "example : goal_of_dialog_analyze = 'ユーザーの置かれている状態と心理状態を明確にする。', dialog_data = '(略)'"
     )
 
     # this function must aceess to the memory, so it is not implemented here. but in the auto_gpt.py itself
 
-    def _run(self, goal_of_dialog_analyze : str) -> str:
+    def _run(self, goal_of_dialog_analyze : str, dialog_data : str) -> str:
         pass
 
 
@@ -20,5 +21,5 @@ class Pander_Dialog_State(BaseTool):
 
     @classmethod
     def get_tool_name(cls) -> str:
-        return cls.name
+        return "pander_dialog_state"
 
