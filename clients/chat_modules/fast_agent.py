@@ -2,7 +2,7 @@ import tiktoken
 
 from itertools import zip_longest
 
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import StrOutputParser, messages_to_dict
 from langchain.memory import ConversationBufferMemory
@@ -248,7 +248,3 @@ class Fast_Agents:
 
 
         
-
-
-
-    

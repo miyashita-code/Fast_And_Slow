@@ -1,36 +1,42 @@
 import time
 from langchain.tools.base import BaseTool
 
-class do_nothing(BaseTool):
+TIMEOUT_SEC = 5
+
+class Do_Nothing(BaseTool):
     """Tool that does nothing or just wait 100ms for waiting conversion's procedure."""
 
-    name = "do_nothing"
+    name = "do_nothing_and_wait"
     description = (
-        "Do nothing, and if is_delay_100ms is True, delay 100ms before returning."
-        "Input shold be a boolean value to decide wait or not."
+        "Do nothing, and if is_wait_untill_dialog_upadated is True, wait untill dialog is updated."
+        "Input is_wait_untill_dialog_upadated shold be a boolean value to decide wait or not."
     )
 
     
-    def _do_nothing(self, is_delay_100ms=False) -> str:
+    def _do_nothing(self, is_wait_untill_dialog_upadated=False) -> str:
         """
-        Do nothing, and if is_delay_100ms is True, delay 100ms before returning.
+        Do nothing, and if is_wait_untill_dialog_upadated is True, wait untill dialog is upadated uptp 5sec. 
+        waiting process is executed in auto_gpt.py itself. 
         
         Args:
             is_delay_100ms (bool): If True, delay 100ms before returning.
         """
-        delay_message = ""
 
-        if is_delay_100ms:
-            time.sleep(0.1)
-            delay_message = " (delayed 100ms)"
-
-        return "No action performed." + delay_message
+        return "No action performed." + ("waited untill dialog is updated." if is_wait_untill_dialog_upadated else "")
 
     
-    def _run(self, is_delay_100ms=False) -> str:
-        return self._do_nothing(is_delay_100ms)
+    def _run(self, is_wait_untill_dialog_upadated=False) -> str:
+        return self._do_nothing(is_wait_untill_dialog_upadated)
 
 
-    async def _arun(self, is_delay_100ms=False) -> str:
+    async def _arun(self, is_wait_untill_dialog_upadated=False) -> str:
         """Use the do_nothing asynchroneously."""
-        return self._do_nothing(is_delay_100ms)
+        return self._do_nothing(is_wait_untill_dialog_upadated)
+
+    @classmethod
+    def get_tool_name(cls) -> str:
+        return "do_nothing_and_wait"
+
+    @classmethod
+    def get_wait_timeout_limit(cls) -> int:
+        return TIMEOUT_SEC

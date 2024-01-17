@@ -1,4 +1,4 @@
 from langchain.tools.base import BaseTool
 
-class get_individual_care_info_from_db(BaseTool):
+class Get_Individual_Care_Info_From_DB(BaseTool):
     pass

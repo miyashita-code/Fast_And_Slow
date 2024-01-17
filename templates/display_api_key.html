@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>APIキー</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/5.0.0-alpha1/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css">
+  <style>
+    body, html {
+      height: 90%;
+      margin: 0;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      min-height: 600px;
+    }
+    .container {
+      max-width: 700px; /* 横幅を広げる */
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+      padding: 20px;
+      border-radius: 10px;
+      background-color: #f8f9fa;
+    }
+    .api-key {
+      word-break: break-all;
+      font-family: monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .btn-primary {
+      width: 100%;
+    }
+    .btn-copy {
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+    .btn-copy:focus {
+      outline: none;
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1 class="mb-4 text-center">{{ name }}さん</h1>
+  <p class="mb-3 text-center">ユーザーID: {{ user_id }}</p>
+  <div class="alert alert-secondary api-key">
+    <span>あなたのAPIキー: <br/>{{ api_key }}</span>
+    <button class="btn btn-outline-secondary btn-sm btn-copy">
+      <i class="bi bi-clipboard"></i> <!-- アイコンを使用 -->
+    </button>
+  </div>
+  <div class="alert alert-warning" role="alert">
+    <h4 class="alert-heading">重要: APIキーの管理について</h4>
+    <p>こちらがあなたのAPIキーです。APIキーは機密情報であり、厳格に管理する必要があります。</p>
+    <ul>
+      <li>APIキーは絶対に公開せず、安全な場所に保管し、アクセスを厳しく制限してください。</li>
+      <li>APIキーの使用状況を定期的に監視し、不審な活動があった場合はすぐに対応してください。</li>
+</ul>
+
+  </div>
+  <a href="/" class="btn btn-primary mt-4">ホームに戻る</a>
+</div>
+<!-- Bootstrap JS and its dependencies -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.0.0/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/5.0.0-alpha1/js/bootstrap.min.js"></script>
+<script>
+  document.querySelector('.btn-copy').addEventListener('click', function() {
+    const apiKey = '{{ api_key }}'; // APIキーの値を取得
+    navigator.clipboard.writeText(apiKey).then(() => {
+      alert('APIキーがクリップボードにコピーされました。'); // コピー成功時のメッセージ
+    }).catch(err => {
+      console.error('コピーに失敗しました:', err); // エラー処理
+    });
+  });
+</script>
+</body>
+</html>

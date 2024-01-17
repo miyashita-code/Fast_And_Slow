@@ -5,7 +5,7 @@ import openai
 import streamlit as st
 from dotenv import load_dotenv
 
-from modules.fast_agent import Fast_Agents
+from chat_modules.fast_agent import Fast_Agents
 
 
 
@@ -120,3 +120,5 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         sys.exit(1)
+
+
