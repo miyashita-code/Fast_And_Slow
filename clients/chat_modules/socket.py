@@ -3,48 +3,54 @@ import requests
 import socketio
 from dotenv import load_dotenv
 
-# .envファイルの読み込み
+# Load the .env file to access environment variables
 load_dotenv()
 
+class SocketClient:
+    def __init__(self):
+        # Retrieve API key and URL from environment variables
+        self.api_key = os.getenv('OWN_API_KEY')
+        self.url = os.getenv('SERVER_URL')
+        self.sio = socketio.Client()
+        self.configure_events()
 
+    def __get_token(self):
+        # Function to get a token from the server
+        try:
+            response = requests.post(f'{self.url}/api/token', headers={'API-Key': self.api_key})
+            return response.json()['token']
+        except requests.RequestException as e:
+            # Print error message if token fetch fails
+            print(f'Error fetching token: {e}')
+            return None
 
-# APIキーとURLをenvファイルから取得
-API_KEY = os.getenv('OWN_API_KEY')
-URL =  os.getenv('SERVER_URL')
+    def configure_events(self):
+        # Configure Socket.IO events
 
-# トークンを取得する関数
-def get_token():
-    try:
-        response = requests.post(f'{URL}/api/token', headers={'API-Key': API_KEY})
-        return response.json()['token']
-    except requests.RequestException as e:
-        print(f'Error fetching token: {e}')
-        return None
-
-# Socket.IOサーバーに接続する関数
-def init_socket_connection():
-    token = get_token()
-    if token:
-        sio = socketio.Client()
-        sio.connect(URL, headers={'token': token})
-
-        @sio.event
+        @self.sio.event
         def connect():
+            # Event triggered when connected to the server
             print('Connected to the server')
 
-
-        @sio.event
+        @self.sio.event
         def disconnect():
+            # Event triggered when disconnected from the server
             print('Disconnected from the server')
 
-        # メッセージ送信のための関数（必要に応じてカスタマイズ）
-        def send_message(message):
-            sio.emit('message', {'message': message})
+    def connect(self):
+        # Function to connect to the Socket.IO server
+        token = self.__get_token()
+        if token:
+            self.sio.connect(self.url, headers={'token': token})
+        else:
+            # Print message if token fetch fails
+            print('Token fetch failed')
 
-        # メッセージ送信の例
-        send_message('Hello, world!')
-    else:
-        print('Token fetch failed')
+    def send_message(self, message):
+        # Function to send a message to the server
+        self.sio.emit('message', {'message': message})
 
-# Socket.IO接続の初期化
-init_socket_connection()
+    def disconnect(self):
+        # Function to disconnect from the Socket.IO server
+        self.sio.disconnect()
+

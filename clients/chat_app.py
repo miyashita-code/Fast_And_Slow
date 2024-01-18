@@ -5,7 +5,7 @@ import openai
 import streamlit as st
 from dotenv import load_dotenv
 
-from chat_modules.fast_agent import Fast_Agents
+from chat_modules.fast_agent import FastAgents
 
 
 
@@ -36,7 +36,7 @@ def init():
         st.session_state.messages = []
 
     if "agents" not in st.session_state:
-        st.session_state.agents = Fast_Agents(st.session_state.instructions)
+        st.session_state.agents = FastAgents(st.session_state.instructions)
 
         # update chat history
         st.session_state.messages = st.session_state.agents.parse_chat_history_into_streamlit_chat_format()
