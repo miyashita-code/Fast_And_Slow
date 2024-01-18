@@ -15,7 +15,7 @@ from operator import itemgetter
 from prompts.chat_prompt import fast_and_slow_sys_template, gpt_cot_pander_sys_template, gpt4_cot_response_sys_template, gpt4_sys_template
 
 
-class Fast_Agents:
+class FastAgents:
     def __init__(self, instructions : str):
         fast_and_slow_chain_with_mem, gpt4_CoT_chain_with_mem, gpt4_chain_with_mem = self.make_chains()
         self.chains_with_mem = {"fast_and_slow": fast_and_slow_chain_with_mem, "gpt4_CoT": gpt4_CoT_chain_with_mem, "gpt4": gpt4_chain_with_mem}

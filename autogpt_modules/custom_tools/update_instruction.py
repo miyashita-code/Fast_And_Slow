@@ -7,7 +7,7 @@ from langchain.tools.base import BaseTool
 
 
 
-class Updata_Instructions(BaseTool):
+class UpdataInstructions(BaseTool):
     """Tool that updates instructions."""
 
     name = "updata_instructions"

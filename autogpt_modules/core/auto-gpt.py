@@ -44,10 +44,10 @@ from langchain_community.vectorstores import FAISS
 from dotenv import load_dotenv
 
 from autogpt_modules.custom_tools import (
-    Pander_Dialog_State,
-    Get_Individual_Care_Info_From_DB,
-    Updata_Instructions,
-    Do_Nothing
+    PanderDialogState,
+    GetIndividualCareInfoFromDB,
+    UpdataInstructions,
+    DoNothing
 )
 
 load_dotenv()
@@ -245,7 +245,7 @@ def main():
     llm = ChatOpenAI(temperature=0, model="gpt-4-1106-preview")
 
     # load google search tool and custom tools
-    tools = tools = load_tools(["serpapi"], llm=llm) + [Do_Nothing(), Updata_Instructions(), Pander_Dialog_State()]
+    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), PanderDialogState()]
 
     auto_gpt = AutoGPT.from_llm_and_tools(
         ai_name="認知症サポーター",

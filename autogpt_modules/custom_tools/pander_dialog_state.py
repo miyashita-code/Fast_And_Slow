@@ -1,6 +1,6 @@
 from langchain.tools.base import BaseTool
 
-class Pander_Dialog_State(BaseTool):
+class PanderDialogState(BaseTool):
     """Tool that pander and analize current dialog state to conduct better instruction."""
 
     name = "pander_dialog_state"
