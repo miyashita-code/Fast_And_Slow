@@ -16,11 +16,11 @@ from prompts.chat_prompt import fast_and_slow_sys_template, gpt_cot_pander_sys_t
 
 
 class FastAgents:
-    def __init__(self, instructions : str):
+    def __init__(self):
         fast_and_slow_chain_with_mem, gpt4_CoT_chain_with_mem, gpt4_chain_with_mem = self.make_chains()
         self.chains_with_mem = {"fast_and_slow": fast_and_slow_chain_with_mem, "gpt4_CoT": gpt4_CoT_chain_with_mem, "gpt4": gpt4_chain_with_mem}
         self.current_chain_with_mem = self.chains_with_mem["gpt4"]
-        self.instructions = instructions
+        self.autogpt_instructions : str = ""
 
         # for debug
         self.current_chain_with_mem_name = "gpt4"
@@ -245,6 +245,30 @@ class FastAgents:
             return ""
 
         return instruction_history[-1]["data"]["content"]
+
+    def set_autogpt_instructions(self, instructions : str):
+        """
+        set instruction of the current chain
+
+        Parameters
+        ----------
+        instructions : str
+            instruction of the current chain
+        """
+
+        self.autogpt_instructions = instructions
+
+    def get_autogpt_instructions(self) -> str:
+        """
+        get instruction of the current chain
+
+        Returns
+        -------
+        instruction : str
+            instruction of the current chain
+        """
+
+        return self.autogpt_instructions
 
 
         

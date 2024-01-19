@@ -13,6 +13,7 @@ class SocketClient:
         self.url = os.getenv('SERVER_URL')
         self.sio = socketio.Client()
         self.configure_events()
+        self.callback_function = None
 
     def __get_token(self):
         # Function to get a token from the server
@@ -26,7 +27,6 @@ class SocketClient:
 
     def configure_events(self):
         # Configure Socket.IO events
-
         @self.sio.event
         def connect():
             # Event triggered when connected to the server
@@ -37,20 +37,31 @@ class SocketClient:
             # Event triggered when disconnected from the server
             print('Disconnected from the server')
 
+        @self.sio.on('instruction')
+        def on_message(data):
+            # Event triggered when a message is received from the server
+            print(f'Received message: {data}')
+            if self.callback_function:
+                self.callback_function(data)
+
     def connect(self):
         # Function to connect to the Socket.IO server
-        token = self.__get_token()
-        if token:
-            self.sio.connect(self.url, headers={'token': token})
+        self.token = self.__get_token()
+        if self.token:
+            self.sio.connect(self.url, headers={'token': self.token}, transports='websocket')
         else:
             # Print message if token fetch fails
             print('Token fetch failed')
 
-    def send_message(self, message):
+    def send_chat_message(self, message):
         # Function to send a message to the server
-        self.sio.emit('message', {'message': message})
+        self.sio.emit('chat_message', {'message': message, 'token': self.token})
 
     def disconnect(self):
         # Function to disconnect from the Socket.IO server
         self.sio.disconnect()
+
+    def set_callback_function(self, callback_function):
+        # Function to set the callback function
+        self.callback_function = callback_function
 

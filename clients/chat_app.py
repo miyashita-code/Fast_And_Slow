@@ -5,7 +5,7 @@ import openai
 import streamlit as st
 from dotenv import load_dotenv
 
-from chat_modules.fast_agent import FastAgents
+from chat_modules import FastAgents, SocketClient
 
 
 
@@ -26,9 +26,6 @@ def init():
         page_title="Fast & Slow"
     )
 
-    if "instructions" not in st.session_state:
-        st.session_state.instructions = ""
-
     if "prev_option" not in st.session_state:
         st.session_state.prev_option = "gpt4"
 
@@ -36,10 +33,16 @@ def init():
         st.session_state.messages = []
 
     if "agents" not in st.session_state:
-        st.session_state.agents = FastAgents(st.session_state.instructions)
+        st.session_state.agents = FastAgents()
 
         # update chat history
         st.session_state.messages = st.session_state.agents.parse_chat_history_into_streamlit_chat_format()
+
+    if "socket_client" not in st.session_state:
+        st.session_state.socket_client = SocketClient()
+        st.session_state.socket_client.connect()
+        st.session_state.socket_client.set_callback_function(st.session_state.agents.set_autogpt_instructions)
+
 
 
 
@@ -97,7 +100,11 @@ def main():
             full_response = ""
 
             input = {"input": st.session_state.messages[-1]["content"]}  
-            contents = {"input": input["input"], "instruction": st.session_state.instructions} if (st.session_state.agents.current_chain_with_mem_name == "fast_and_slow") else {"input": input["input"]}
+            contents = {"input": input["input"], "instruction": st.session_state.agents.get_autogpt_instructions()} if (st.session_state.agents.current_chain_with_mem_name == "fast_and_slow") else {"input": input["input"]}
+
+            # send message to auto-gpt if the current chain is fast_and_slow
+            if (st.session_state.agents.current_chain_with_mem_name == "fast_and_slow"):
+                st.session_state.socket_client.send_chat_message(f"user: {input['input']}.")
                       
             with st.spinner(""):
                 # Stream
@@ -119,6 +126,8 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
+        st.session_state.socket_client.disconnect()
         sys.exit(1)
+
 
 
