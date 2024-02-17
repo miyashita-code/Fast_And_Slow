@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from langchain.llms import OpenAI
+from langchain.chat_models import ChatOpenAI
 from langchain.chains.llm import LLMChain
 from langchain.chat_models.base import BaseChatModel
 from langchain.memory import ChatMessageHistory
@@ -40,6 +40,14 @@ from langchain.docstore import InMemoryDocstore
 from langchain.vectorstores import FAISS
 
 from dotenv import load_dotenv
+
+from autogpt_modules.custom_tools import (
+    Pander_Dialog_State,
+    Get_Individual_Care_Info_From_DB,
+    Updata_Instructions,
+    Do_Nothing
+)
+
 
 load_dotenv()
 
@@ -112,24 +120,52 @@ class AutoGPT:
             # Discontinue if continuous limit is reached
             loop_count += 1
 
+            # update chat history count
+            self.current_size_chat_history = len(self.chat_history_memory.messages)
+
             # Send message to AI, get response
-            assistant_reply = self.chain.run(
-                goals=goals,
-                messages=self.chat_history_memory.messages,
-                memory=self.memory,
-                user_input=user_input,
+            assistant_reply_infos = self.chain.invoke({
+                    "goals": goals,
+                    "messages": self.chat_history_memory.messages,
+                    "user_input": user_input,
+                    "memory": self.memory,
+                },
             )
 
+            assistant_reply = assistant_reply_infos["text"]
+
             # Print Assistant thoughts
-            print(assistant_reply)
+            print(f"replay: {assistant_reply}")
             self.chat_history_memory.add_message(HumanMessage(content=user_input))
             self.chat_history_memory.add_message(AIMessage(content=assistant_reply))
 
             # Get command name and arguments
             action = self.output_parser.parse(assistant_reply)
             tools = {t.name: t for t in self.tools}
+
             if action.name == FINISH_NAME:
                 return action.args["response"]
+
+            # give dialog history to Pander_Dialog_State (custom tool : arg that name is dialog_data is just buffer when agent give the arg)
+            if action.name == Pander_Dialog_State.get_tool_name():
+                action.args["dialog_data"] = self.get_user_dialog_history()
+
+            try:
+                # execute wait
+                if action.name == Do_Nothing.get_tool_name() and action.args["is_wait_untill_dialog_upadated"]:
+                    # wait untill dialog is updated or 5sec passed
+                    start_time = datetime.now()
+
+                    while True:
+                        if self.current_size_chat_history < len(self.chat_history_memory.messages):
+                            break
+                        elif (datetime.now() - start_time).seconds > Do_Nothing.TIMEOUT_SEC:
+                            break
+
+            except KeyError:
+                pass
+
+
             if action.name in tools:
                 tool = tools[action.name]
                 try:
@@ -147,9 +183,11 @@ class AutoGPT:
                 result = f"Error: {action.args}. "
             else:
                 result = (
+                    f"*** DO NOT VIOLATE THESE RULES ***"
                     f"Unknown command '{action.name}'. "
                     f"Please refer to the 'COMMANDS' list for available "
                     f"commands and only respond in the specified JSON format."
+                    f"*** *** *** *** *** *** ***"
                 )
 
             memory_to_add = (
@@ -164,6 +202,16 @@ class AutoGPT:
 
             self.memory.add_documents([Document(page_content=memory_to_add)])
             self.chat_history_memory.add_message(SystemMessage(content=result))
+
+    def get_user_dialog_history(self) -> str:
+
+        ################################################################################
+        ###                  TODO : user dialog history を取得する                    ###
+        ################################################################################
+
+        pass
+
+        return "dialog history ..."
 
 def main():
 
@@ -181,10 +229,10 @@ def main():
 
 
     # init llm
-    llm = OpenAI(temperature=0, model="gpt-4-1106-preview")
+    llm = ChatOpenAI(temperature=0, model="gpt-4-1106-preview")
 
     # load google search tool
-    tools = load_tools(["serpapi"], llm=llm)
+    tools = load_tools(["serpapi"], llm=llm) + [Do_Nothing(), Updata_Instructions(), Pander_Dialog_State()]
 
     auto_gpt = AutoGPT.from_llm_and_tools(
         ai_name="認知症サポーター",

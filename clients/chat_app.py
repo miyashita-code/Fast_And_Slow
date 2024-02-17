@@ -1,11 +1,63 @@
 import sys
-
 import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.append(project_root)
+
+
 import openai
 import streamlit as st
 from dotenv import load_dotenv
 
-from modules.fast_agent import Fast_Agents
+from modules import Fast_Agents
+
+import requests
+from socketIO_client import SocketIO
+
+
+def get_token():
+    try:
+        API_KEY = os.getenv("OWN_API_KEY")
+        URL = os.getenv("SERVER_URL")
+    except Exception as error:
+        print('Error load OWN_API_KEY or SERVER_URL from env ', error)
+        return None
+
+    try:
+        response = requests.post('http://localhost:8079/api/token', headers={'API-Key': API_KEY})
+        return response.json().get('token')
+    except requests.RequestException as error:
+        print('Error fetching token:', error)
+        return None
+
+def on_connect():
+    print('Connected to the server')
+
+def on_message_length(*args):
+    print('Message Length:', len(args[0]))
+
+def init_socket_connection():
+    token = get_token()
+
+    if token:
+        socket = SocketIO(URL, query=f'token={token}')
+        socket.on('connect', on_connect)
+        socket.on('message_length', on_message_length)
+
+        def send_message(message):
+            socket.emit('message', {'message': message})
+
+        # Example of sending a message
+        send_message('Hello, world!')
+
+    else:
+        print('Token fetch failed')
+        return False
+    
+    return True
+
+
 
 
 
@@ -20,6 +72,7 @@ def init():
     else:
         #print("OPENAI_API_KEY is set")
         pass
+    
 
     # setup streamlit page
     st.set_page_config(
@@ -40,6 +93,9 @@ def init():
 
         # update chat history
         st.session_state.messages = st.session_state.agents.parse_chat_history_into_streamlit_chat_format()
+
+    if "auth_tryal" not in st.session_state:
+        st.session_state.auth_tryal = init_socket_connection()
 
 
 
@@ -115,6 +171,7 @@ def main():
 
 if __name__ == "__main__":
     init()
+
 
     try:
         main()
