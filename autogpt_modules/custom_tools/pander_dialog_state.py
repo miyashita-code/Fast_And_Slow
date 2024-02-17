@@ -1,11 +1,11 @@
 from langchain.tools.base import BaseTool
 
-class Pander_Dialog_State(BaseTool):
+class PanderDialogState(BaseTool):
     """Tool that pander and analize current dialog state to conduct better instruction."""
 
     name = "pander_dialog_state"
     description = (
-        "Tool that pander and analyze current dialog state to conduct better instruction."
+        "Tool that pander and analyze already provided dialog state to conduct better instruction at this ponit."
         "Input shold be a string goal_of_dialog_analyze to pander and dive into that and a string dialog_data that is buffer so please set (略)."
         "example : goal_of_dialog_analyze = 'ユーザーの置かれている状態と心理状態を明確にする。', dialog_data = '(略)'"
     )

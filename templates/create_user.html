@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ユーザー作成</title>
+  <!-- Bootstrap CSSの読み込み -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/5.0.0-alpha1/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body, html {
+      height: 100%; /* フルハイト */
+      margin: 0; /* マージンをリセット */
+    }
+    body {
+      display: flex; /* Flexboxを有効化 */
+      justify-content: center; /* 水平方向の中央揃え */
+      align-items: center; /* 垂直方向の中央揃え */
+      background-color: #fff; /* 白背景 */
+      color: #333; /* 文字色 */
+    }
+    .container {
+      max-width: 500px; /* コンテナの最大幅 */
+      padding: 20px;
+      background-color: #f8f9fa; /* 軽い背景色 */
+      border-radius: 10px; /* 角丸 */
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* シャドウ */
+    }
+    .form-label {
+      font-weight: bold; /* ラベルのフォントウェイト */
+    }
+    .text-center {
+      text-align: center; /* テキスト中央揃え */
+    }
+    .top-right {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      font-size: 1.2em; /* 文字サイズ */
+    }
+  </style>
+</head>
+<body>
+
+<div class="top-right">
+  <span>{{usr}}さん</span> | <a href="/logout" class="btn btn-secondary btn-sm">ログアウト</a>
+</div>
+
+<div class="container">
+  <h1 class="text-center">新規ユーザーの作成</h1>
+  <form action="/register" method="post">
+    <div class="mb-3">
+      <label for="username" class="form-label">ユーザー名(16文字以内):</label>
+      <input type="text" id="username" name
+="username" maxlength="16" required pattern="[A-Za-z0-9]{1,16}" class="form-control" title="ユーザー名は16文字以内の英数字のみ">
+</div>
+<div class="text-center">
+<button type="submit" class="btn btn-primary">ユーザー作成</button>
+</div>
+
+  </form>
+</div>
+<!-- BootstrapのJavaScriptとその依存関係 -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.0.0/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/5.0.0-alpha1/js/bootstrap.min.js"></script>
+</body>
+</html>

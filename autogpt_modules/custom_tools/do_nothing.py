@@ -3,7 +3,7 @@ from langchain.tools.base import BaseTool
 
 TIMEOUT_SEC = 5
 
-class Do_Nothing(BaseTool):
+class DoNothing(BaseTool):
     """Tool that does nothing or just wait 100ms for waiting conversion's procedure."""
 
     name = "do_nothing_and_wait"
