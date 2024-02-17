@@ -12,7 +12,7 @@ import hashlib
 import os
 import requests
 from dotenv import load_dotenv
-from models import db, UserAuth
+from modules.models import db, UserAuth
 
 # Load environment variables
 load_dotenv()
