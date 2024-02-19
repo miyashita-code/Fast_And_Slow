@@ -40,3 +40,5 @@ class Message(db.Model):
 
     def __repr__(self):
         return f"<Message {self.content}>"
+
+
