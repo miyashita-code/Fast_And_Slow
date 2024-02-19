@@ -58,7 +58,7 @@ class SocketClient:
         # Function to connect to the Socket.IO server
         self.token = self.__get_token()
         if self.token:
-            self.sio.connect(self.url, headers={'token': self.token}, transports='websocket')
+            self.sio.connect(self.url, headers={'token': self.token}, transports=['websocket', 'polling'])
         else:
             # Print message if token fetch fails
             print('Token fetch failed')

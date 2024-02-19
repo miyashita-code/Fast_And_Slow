@@ -35,6 +35,8 @@ from langchain.chains import ConversationChain
 from langchain.prompts import PromptTemplate
 
 
+
+
 import faiss
 import time
 
@@ -134,9 +136,8 @@ class AutoGPT:
             # update chat history count
             self.current_size_chat_history = len(self.chat_history_memory.messages)
 
-            # Get dialog history and convert to Document to use in the prompt format
-            dialog_datas_strs = get_messages()
-            dialog_datas = self.convertTextMessages2BaseMessages(dialog_datas_strs)
+            # Get messages of dialog, then convert to BaseMessages
+            messages : list[BaseMessage] = self.textMessages2BaseMessages(get_messages())
 
             # Send message to AI, get response
             input_dict = {
@@ -144,7 +145,7 @@ class AutoGPT:
                 "messages": self.chat_history_memory.messages,
                 "memory": self.memory,
                 "user_input": user_input,
-                "dialog_datas": dialog_datas           
+                "dialog_datas": messages,    
             }
 
             # If you have additional configurations, create a RunnableConfig object
@@ -234,22 +235,16 @@ class AutoGPT:
 
             pervious_messages_count = len(get_messages())
 
-    def convertTextMessages2BaseMessages(self, messages: List[str]) -> List[BaseMessage]:
-        BaseMessages = []
+    def textMessages2BaseMessages(self, messages: list[str]) -> list[BaseMessage]:
+        baseMessages = []
         for message in messages:
-            try:
-                surfix = message.split(":")[0]
-                content = message.split(":")[1]
+            if message.split(":")[0] == "user":
+                baseMessages.append(HumanMessage(content=message))
+            elif message.split(":")[0] == "assistant":
+                baseMessages.append(AIMessage(content=message))
 
-                if surfix == "assistant":
-                    BaseMessages.append(AIMessage(content=content))
-                elif surfix == "user":
-                    BaseMessages.append(HumanMessage(content=message))
-            except IndexError:
-                pass
+        return baseMessages[::-1]
 
-
-        return BaseMessages
 
 
 def autogpt_main(send_instruction, get_messages):

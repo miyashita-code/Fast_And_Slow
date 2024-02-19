@@ -117,11 +117,12 @@ class AutoGPTPrompt(BaseChatPromptTemplate, BaseModel):  # type: ignore[misc]
         messages.append(input_message)
 
         # Add dialog_datas messages
-        dialog_datas: List[str] = kwargs["dialog_datas"]
+        dialog_datas: List[BaseMessage] = kwargs["dialog_datas"]
         messages.append(dialogs_prompt)
 
         
         for message in dialog_datas[::-1]:
+            
             message_tokens = self.token_counter(message.content)
             if used_tokens + message_tokens > self.send_token_limit - 1000:
                 break
