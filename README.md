@@ -19,6 +19,11 @@ Download and install PostgreSQL from the official website.
 ### Step 2: Create Database in PostgreSQL
 Use psql or a PostgreSQL GUI to create a new database for the application.
 
+in psql
+```
+CREATE DATABASE rementia;
+```
+
 ### Step 3: Database Migration
 Navigate to your project directory and run the following commands to initialize, migrate, and upgrade your database:
 ```
