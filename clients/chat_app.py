@@ -121,6 +121,10 @@ def main():
             #message_placeholder.markdown(full_response)
             st.session_state.agents.current_chain_with_mem["data"]["memory"].save_context(input, {"output": full_response})
 
+            # send message to auto-gpt if the current chain is fast_and_slow
+            if (st.session_state.agents.current_chain_with_mem_name == "fast_and_slow"):
+                st.session_state.socket_client.send_chat_message(f"assistant: {full_response}.")
+
     
         st.session_state.messages.append({"role": "assistant", "content": full_response})
 

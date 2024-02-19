@@ -12,7 +12,9 @@ import hashlib
 import os
 import requests
 from dotenv import load_dotenv
+
 from modules.models import db, UserAuth
+from autogpt_modules.core.auto_gpt import autogpt_main
 
 # Load environment variables
 load_dotenv()
@@ -98,18 +100,31 @@ class BackEndProcess:
         """
         Run the backend process. Emit instructions based on message length.
         """
-        while self.active:
-            time.sleep(5)
-            message_length = sum(len(m) for m in self.messages)
-            self.socketio.emit('instruction', {'length': message_length}, room=self.room)
+        print(f"run : {self.room}")
+        print(f"say hello : {self.room}")
+        self.socketio.emit('announce', {'announce': 'Hello, autoGpt Started!'}, room=self.room)
 
-    def stop(self):
-        """ Stop the backend process. """
-        self.active = False
+        self.send_instruction("まずは、傾聴を心がけてください。ユーザーの状態を把握することが第一の目標です。虚偽の事実を伝えないように十分に注意してください。")
+        autogpt_main(self.send_instruction, self.get_messages)
+
+
+    def send_instruction(self, instruction):
+        """
+        Send an instruction to the client.
+
+        Args:
+        instruction (str): Instruction to send.
+        """
+        print(f"send instruction : {instruction}")
+        self.socketio.emit('instruction', {'instruction': instruction}, room=self.room)
 
     def set_messages(self, message):
         """ Add a message to the message list. """
         self.messages.append(message)
+
+    def get_messages(self):
+        """ Get the message list. """
+        return self.messages
 
     def set_room(self, room):
         """ Set the room ID. """
@@ -259,7 +274,6 @@ def handle_disconnect():
 
     for user_id, bp in backend_instances.items():
         if bp.get_room() == room:
-            bp.stop()
             del backend_instances[user_id]
             break
 

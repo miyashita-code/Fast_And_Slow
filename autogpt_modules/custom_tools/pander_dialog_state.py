@@ -13,11 +13,11 @@ class PanderDialogState(BaseTool):
     # this function must aceess to the memory, so it is not implemented here. but in the auto_gpt.py itself
 
     def _run(self, goal_of_dialog_analyze : str, dialog_data : str) -> str:
-        pass
+        return f"Dialog state is analyzed with {goal_of_dialog_analyze} and {dialog_data}."
 
 
-    async def _arun(self, goal_of_dialog_analyze : str) -> str:
-        return self._run(goal_of_dialog_analyze)
+    async def _arun(self, goal_of_dialog_analyze : str, dialog_data : str) -> str:
+        return self._run(goal_of_dialog_analyze, dialog_data)
 
     @classmethod
     def get_tool_name(cls) -> str:
