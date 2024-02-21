@@ -25,9 +25,18 @@ FIREBASE_API_KEY = os.environ.get('FIREBASE_API_KEY')
 app = Flask(__name__)
 CORS(app)
 
+# Get DATABASE_URL from Heroku's environment variables
+SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+
+# If the URL starts with 'postgres://', replace it with 'postgresql://'
+# This is necessary because SQLAlchemy doesn't accept 'postgres://' scheme
+if SQLALCHEMY_DATABASE_URI.startswith("postgres://"):
+    SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace("postgres://", "postgresql://", 1)
+
+# Update SQLAlchemy configuration with the corrected DATABASE_URL
 # Configure Flask app with environment variables
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY_FLASK')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database and migration
