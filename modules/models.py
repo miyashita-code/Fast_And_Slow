@@ -5,7 +5,6 @@ import uuid
 db = SQLAlchemy()
 
 
-db = SQLAlchemy()
 
 class UserAuth(db.Model):
     __tablename__ = 'user_auth'
