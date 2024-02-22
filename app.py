@@ -190,6 +190,12 @@ def get_token():
         return jsonify({'token': token})
     else:
         return jsonify({'message': 'Invalid API Key'}), 401
+    
+@app.route('/get_reminders', methods=['GET'])
+def get_reminders():
+
+
+    return jsonify({"time": 1708595280, "tellmessage": "会議の時間です", "detail": "10:00 AMにZoomで会議があります"})
 
 @socketio.on('connect')
 def handle_connect(auth=None):
