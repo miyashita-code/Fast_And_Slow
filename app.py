@@ -195,7 +195,7 @@ def get_token():
 def get_reminders():
 
 
-    return jsonify({"time": 1708595280, "tellmessage": "会議の時間です", "detail": "10:00 AMにZoomで会議があります"})
+    return jsonify([{"time": 1708595280, "tellmessage": "テスト", "detail": "開発テスト用です"}])
 
 @socketio.on('connect')
 def handle_connect(auth=None):
