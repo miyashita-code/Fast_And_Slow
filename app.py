@@ -251,6 +251,8 @@ def handle_message(data):
 
     """
 
+    print(f"chat message come")
+
     user = UserAuth.query.filter_by(api_key="5163a9f2cf11cdc8a2cbc22cd95b4691fb04a9d1f1f41182830e6acb231ab10c").first()
 
     if user.id in backend_instances:
