@@ -127,6 +127,8 @@ class AutoGPT:
         )
         # Interaction Loop
         loop_count = 0
+        is_consequently_wait = False
+        conseq_wait_count = 0
         pervious_messages_count = 0
 
         while True:
@@ -177,6 +179,9 @@ class AutoGPT:
                 if action.name == DoNothing.get_tool_name() and action.args["is_wait_untill_dialog_upadated"]:
                     # wait untill dialog is updated or 5sec passed
                     start_time = datetime.now()
+
+                    is_consequently_wait = True
+                    conseq_wait_count += 1
 
                     while True:
                         if pervious_messages_count < len(get_messages()):
