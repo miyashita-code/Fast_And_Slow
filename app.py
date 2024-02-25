@@ -206,6 +206,7 @@ def handle_connect(auth=None):
     is_valid, current_user, error_message = check_token(token)
 
     if not is_valid:
+        print("valid handshake")
         return jsonify({'message': error_message}), 403
 
     print(f"socket connected : {current_user.name}")
