@@ -130,8 +130,11 @@ class AutoGPT:
         is_consequently_wait = False
         conseq_wait_count = 0
         pervious_messages_count = 0
+        relay_rate = 1
 
-        while True:
+        while True and conseq_wait_count < 20 and loop_count < 100:
+            
+
             # Discontinue if continuous limit is reached
             loop_count += 1
             
@@ -180,17 +183,25 @@ class AutoGPT:
                     # wait untill dialog is updated or 5sec passed
                     start_time = datetime.now()
 
+                    if is_consequently_wait: 
+                        conseq_wait_count += 1
+                        relay_rate *= 2
+
                     is_consequently_wait = True
-                    conseq_wait_count += 1
+                    
 
                     while True:
                         if pervious_messages_count < len(get_messages()):
                             break
-                        elif (datetime.now() - start_time).seconds > DoNothing.get_wait_timeout_limit():
+                        elif (datetime.now() - start_time).seconds > (DoNothing.get_wait_timeout_limit() * relay_rate):
                             break
 
                         # delay 0.1sec
                         time.sleep(0.1)
+                else:
+                    is_consequently_wait = False
+                    conseq_wait_count = 0
+                    relay_rate = 1
 
             except KeyError:
                 pass
