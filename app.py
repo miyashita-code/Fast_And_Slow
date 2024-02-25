@@ -202,6 +202,7 @@ def handle_connect(auth=None):
     """
     Handle socket connection. Join room and create/update backend process instance.
     """
+    print(f"handshake tryal : {auth}")
     token = request.headers.get('token')
     is_valid, current_user, error_message = check_token(token)
 
