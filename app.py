@@ -204,6 +204,9 @@ def handle_connect(auth=None):
     """
     print(f"handshake tryal : {auth}")
     token = request.headers.get('token')
+
+    if not token:
+        token = request.query.get('token')
     is_valid, current_user, error_message = check_token(token)
 
     if not is_valid:
