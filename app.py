@@ -247,11 +247,14 @@ def handle_message(data):
     Handle chat messages. Validate token and process message.
     """
 
-    token = data['token']
+    try:
+        token = data['token']
+    except Exception:
+        pass
 
     if not token:
         token = request.args.get('token')
-        
+
     is_valid, current_user, error_message = check_token(token)
     
 

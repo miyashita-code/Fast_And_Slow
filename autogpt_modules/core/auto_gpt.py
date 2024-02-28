@@ -49,7 +49,8 @@ from autogpt_modules.custom_tools import (
     PanderDialogState,
     GetIndividualCareInfoFromDB,
     UpdataInstructions,
-    DoNothing
+    DoNothing,
+
 )
 
 from .custom_congif import MODEL
@@ -282,7 +283,7 @@ def autogpt_main(send_instruction, get_messages):
     llm = ChatOpenAI(temperature=0, model=MODEL)
 
     # load google search tool and custom tools
-    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), PanderDialogState()]
+    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), PanderDialogState(), GetIndividualCareInfoFromDB()]
 
     auto_gpt = AutoGPT.from_llm_and_tools(
         ai_name="認知症サポーター",
