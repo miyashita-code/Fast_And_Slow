@@ -49,7 +49,12 @@ class BackEndProcess:
         Args:
         instruction (str): Instruction to send.
         """
+
+        print("*" *20)
+        print("\n\n")
         print(f"send instruction : {instruction}")
+        print("*" *20)
+        print("\n\n")
         self.socketio.emit('instruction', {'instruction': instruction}, room=self.room)
 
 
