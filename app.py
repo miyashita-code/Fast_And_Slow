@@ -246,6 +246,7 @@ def handle_message(data):
     """
     Handle chat messages. Validate token and process message.
     """
+    token = None
 
     try:
         token = data['token']
