@@ -53,7 +53,7 @@ from autogpt_modules.custom_tools import (
 
 )
 
-from .custom_congif import MODEL
+from .custom_congif import MODEL, THRED_CONSEQ_WAIT
 from .autogpt_prompt import AutoGPTPrompt
 
 load_dotenv()
@@ -133,7 +133,7 @@ class AutoGPT:
         pervious_messages_count = 0
         relay_rate = 1
 
-        while True and conseq_wait_count < 20 and loop_count < 100:
+        while True and conseq_wait_count < THRED_CONSEQ_WAIT and loop_count < 100:
             
 
             # Discontinue if continuous limit is reached
