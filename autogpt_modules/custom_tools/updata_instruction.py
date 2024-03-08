@@ -21,6 +21,7 @@ class UpdataInstructions(BaseTool):
     )
 
 
+
     def _run(self, instruction_text) -> str:
         return f"Instructions for the conversation is updated with {instruction_text}"
 
