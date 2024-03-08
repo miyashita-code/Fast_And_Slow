@@ -191,6 +191,26 @@ def get_token():
     else:
         return jsonify({'message': 'Invalid API Key'}), 401
     
+@app.route('/api/fcm/token_register', methods=['POST'])
+def register_fcm_token():
+    """
+    Register FCM token for push notifications.
+    """
+    api_key = request.headers.get('API-Key')
+    fcm_token = request.headers.get('FCM-Token')
+
+    # Get user by API key
+    user = UserAuth.query.filter_by(api_key=api_key).first()
+
+    if not user:
+        return jsonify({'message': 'Invalid API Key'}), 401
+
+    # Update FCM token
+    user.fcm_token = fcm_token
+    db.session.commit()
+
+    return jsonify({'message': 'FCM token registered successfully!'})
+    
 @app.route('/get_reminders', methods=['GET'])
 def get_reminders():
 

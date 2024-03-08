@@ -12,11 +12,13 @@ class UserAuth(db.Model):
     id = db.Column(db.String, primary_key=True)
     name = db.Column(db.String, nullable=False)
     api_key = db.Column(db.String, nullable=False)
+    fcm_token = db.Column(db.String)
 
-    def __init__(self, id, name, api_key):
+    def __init__(self, id, name, api_key, fcm_token=None):
         self.id = id
         self.name = name
         self.api_key = api_key
+        self.fcm_token = fcm_token
 
     def __repr__(self):
         return f"<UserAuth {self.name}>"
