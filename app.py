@@ -10,8 +10,12 @@ import datetime
 import uuid
 import hashlib
 import os
+import json
 import requests
 from dotenv import load_dotenv
+
+import firebase_admin
+from firebase_admin import credentials, messaging
 
 from modules import db, UserAuth, BackEndProcess
 
@@ -20,6 +24,9 @@ load_dotenv()
 
 # Firebase API key for authentication
 FIREBASE_API_KEY = os.environ.get('FIREBASE_API_KEY')
+firebase_credentials = json.loads(os.environ.get('FIREBASE_CREDENTIALS'))
+cred = credentials.Certificate(firebase_credentials)
+firebase_admin.initialize_app(cred)
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -148,6 +155,64 @@ def create_user():
 
     return render_template("create_user.html", usr=usr)
 
+@app.route('/fcm/console', methods=['GET', 'POST'])
+def fcm_console():
+    usr = session.get('usr')
+    if usr is None:
+        return redirect(url_for('login'))
+    
+    # user_authテーブルからfcm_tokenの一覧を取得
+    users = UserAuth.query.filter(UserAuth.fcm_token != None).all()
+    token_list = [user.fcm_token for user in users]
+    
+    message_sent = False
+    success = False
+    response_msg = ""
+    sent_json = ""
+    
+    if request.method == 'POST':
+        registration_token = request.form.get('registration_token')
+        notifyDisplayInfo = request.form.get('notifyDisplayInfo')
+        notifyDetail = request.form.get('notifyDetail')
+        notifySpeechReading = request.form.get('notifySpeechReading')
+
+        message_data = {
+            'data': {
+                'notifyDisplayInfo': notifyDisplayInfo,
+                'notifyDetail': notifyDetail,
+                'notifySpeechReading': notifySpeechReading
+            },
+            'android': messaging.AndroidConfig(priority='high')
+        }
+
+        if request.form.get('send_to_all') == 'on':
+            message_data['topic'] = 'all'
+        else:
+            message_data['token'] = registration_token
+
+        try:
+            response = messaging.send(messaging.Message(**message_data))
+            message_sent = True
+            success = True
+            response_msg = f'Successfully sent message: {response}'
+
+            def serialize_message_data(data):
+                serialized_data = {}
+                for key, value in data.items():
+                    if isinstance(value, messaging.AndroidConfig):
+                        serialized_data[key] = {'priority': value.priority}
+                    else:
+                        serialized_data[key] = value
+                return serialized_data
+
+            sent_json = json.dumps(serialize_message_data(message_data), indent=4)
+        except Exception as e:
+            message_sent = True
+            success = False
+            response_msg = f'Failed to send message: {e}'
+    
+    return render_template("fcm_console.html", usr=usr, message_sent=message_sent, success=success,
+                           response_msg=response_msg, sent_json=sent_json, token_list=token_list)
 @app.route('/register', methods=['POST'])
 def register_user():
     """
