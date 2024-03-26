@@ -42,22 +42,22 @@ class BackEndProcess:
         autogpt_main(self.send_instruction, self.get_messages)
 
 
-    def send_instruction(self, instruction):
+    def send_socket(self, event, data):
         """
-        Send an instruction to the client.
+        Send data to the client using a specified event.
 
         Args:
-        instruction (str): Instruction to send.
+            event (str): Event name to emit.
+            data (dict): Data to send as key-value pairs.
         """
-
-        print("*" *20)
+        print("*" * 20)
         print("\n\n")
-        print(f"send instruction : {instruction}")
-        print("*" *20)
+        print(f"Sending event: {event}")
+        print(f"Data: {data}")
+        print("*" * 20)
         print("\n\n")
-        self.socketio.emit('instruction', {'instruction': instruction}, room=self.room)
-
-
+        self.socketio.emit(event, data, room=self.room)
+        
     def get_messages(self):
         """ Get the message list. """
         return self.messages
