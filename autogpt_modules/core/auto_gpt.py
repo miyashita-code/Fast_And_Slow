@@ -30,9 +30,6 @@ from langchain_experimental.pydantic_v1 import ValidationError
 # Lang chain側のインポート
 from datetime import datetime
 from langchain_openai import OpenAIEmbeddings
-from langchain.memory import VectorStoreRetrieverMemory
-from langchain.chains import ConversationChain
-from langchain.prompts import PromptTemplate
 
 
 
@@ -50,6 +47,7 @@ from autogpt_modules.custom_tools import (
     GetIndividualCareInfoFromDB,
     UpdataInstructions,
     DoNothing,
+    SendDirectMessageToUser
 
 )
 
@@ -121,7 +119,7 @@ class AutoGPT:
         )
 
 
-    def run(self, goals: List[str], send_instruction : object, get_messages : object) -> str:
+    def run(self, goals: List[str], send_socket : object, get_messages : object) -> str:
         user_input = (
             "Determine which next command to use, "
             "and respond using the format specified above:"
@@ -209,7 +207,10 @@ class AutoGPT:
 
             # send instruction to the server
             if action.name == UpdataInstructions.get_tool_name():
-                send_instruction(action.args["instruction_text"])
+                send_socket("instruction", {"instruction" : action.args["instruction_text"]})
+
+            if action.name == SendDirectMessageToUser.get_tool_name():
+                send_socket("telluser", {"title" : action.args["instruction_title"], "detail" : action.args["instruction_detail"]})
             
             
             if action.name in tools:
@@ -283,7 +284,7 @@ def autogpt_main(send_instruction, get_messages):
     llm = ChatOpenAI(temperature=0, model=MODEL)
 
     # load google search tool and custom tools
-    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), PanderDialogState(), GetIndividualCareInfoFromDB()]
+    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), PanderDialogState(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser()]
 
     auto_gpt = AutoGPT.from_llm_and_tools(
         ai_name="認知症サポーター",
