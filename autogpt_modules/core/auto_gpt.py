@@ -135,9 +135,12 @@ class AutoGPT:
         last_is_lend_ear = ""
         last_showed_message_on_screen = ""
 
+        print("************************\n\n\n************************\n\n\nStart AutoGPT************************\n\n\n************************")
+
         while True and conseq_wait_count < THRED_CONSEQ_WAIT and loop_count < 100:
 
             if(isFin):
+                print("Finish")
                 break
             
 

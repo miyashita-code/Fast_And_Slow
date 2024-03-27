@@ -314,6 +314,7 @@ def handle_connect(auth=None):
     else:
         backend_instances[current_user.id].set_room(room)
 
+
 @socketio.on('disconnect')
 def handle_disconnect():
     """
