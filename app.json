@@ -1,0 +1,22 @@
+{
+    "scripts": {
+      "postdeploy": "flask db upgrade"
+    },
+    "env": {
+      "FLASK_APP": "app"
+    },
+    "formation": {
+      "web": {
+        "quantity": 1,
+        "size": "free"
+      }
+    },
+    "addons": [
+      "heroku-postgresql"
+    ],
+    "buildpacks": [
+      {
+        "url": "heroku/python"
+      }
+    ]
+}
