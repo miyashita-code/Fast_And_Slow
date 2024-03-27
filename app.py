@@ -327,6 +327,7 @@ def handle_disconnect():
             del backend_instances[user_id]
             break
 
+
 @socketio.on('chat_message')
 def handle_message(data):
     """
