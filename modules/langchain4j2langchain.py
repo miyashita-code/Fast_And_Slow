@@ -2,6 +2,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 from langchain.schema import HumanMessage, AIMessage
 
+from pydantic import BaseModel
+from typing import List, Optional
+
 class TextContent(BaseModel):
     text: str
 
@@ -9,9 +12,15 @@ class UserMessage(BaseModel):
     name: Optional[str] = None
     contents: List[TextContent]
 
+    class Config:
+        arbitrary_types_allowed = True
+
 class AiMessage(BaseModel):
     text: str
     toolExecutionRequests: Optional[str] = None
+
+    class Config:
+        arbitrary_types_allowed = True
 
 def convert_to_langchain_message(message):
     if isinstance(message, UserMessage):

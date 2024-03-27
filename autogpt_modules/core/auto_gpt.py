@@ -265,7 +265,7 @@ class AutoGPT:
 
 
 
-def autogpt_main(send_instruction, get_messages):
+def autogpt_main(send_socket, get_messages):
 
     # Define your embedding model
     embeddings = OpenAIEmbeddings()
@@ -306,7 +306,7 @@ def autogpt_main(send_instruction, get_messages):
             "必要に応じてデータベースのデータを参照する。",  
             "よりよい応答のの方向性の決定を行い、インストラクションで具体的に事実に基づいて指示をする。"
         ], 
-        send_instruction=send_instruction, 
+        send_socket=send_socket, 
         get_messages=get_messages
     )
 
