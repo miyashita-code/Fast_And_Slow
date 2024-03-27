@@ -284,7 +284,7 @@ def autogpt_main(send_socket, get_messages):
     llm = ChatOpenAI(temperature=0, model=MODEL)
 
     # load google search tool and custom tools
-    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), PanderDialogState(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser()]
+    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser()] #PanderDialogState()
 
     auto_gpt = AutoGPT.from_llm_and_tools(
         ai_name="認知症サポーター",
