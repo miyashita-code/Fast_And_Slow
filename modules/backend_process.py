@@ -40,7 +40,7 @@ class BackEndProcess:
         self.socketio.emit('announce', {'announce': 'Hello, autoGpt Started!'}, room=self.room)
 
         self.send_socket("instruction", "まずは、傾聴を心がけてください。ユーザーの状態を把握することが第一の目標です。虚偽の事実を伝えないように十分に注意してください。")
-        autogpt_main(self.send_instruction, self.get_messages)
+        autogpt_main(self.send_socket, self.get_messages)
 
 
     def send_socket(self, event, data):

@@ -17,10 +17,8 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, messaging
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
 
-
-from modules import db, UserAuth, BackEndProcess
+from modules import db, UserAuth, BackEndProcess, convert_to_langchain_message
 
 # Load environment variables
 load_dotenv()
@@ -347,19 +345,14 @@ def handle_message(data):
     print(f"chat message come")
     user = UserAuth.query.filter_by(api_key="5163a9f2cf11cdc8a2cbc22cd95b4691fb04a9d1f1f41182830e6acb231ab10c").first()
 
-    if not (isinstance(data, UserMessage) or isinstance(data, AiMessage)):
-        return jsonify({'message': 'Invalid message format!'}), 400
-
-    message_content = ""
     if user.id in backend_instances:
-        print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
-        message_content = ""
-    if isinstance(data, UserMessage):
-        message_content = data.contents[0].text if data.contents else ""
-    elif isinstance(data, AiMessage):
-        message_content = data.text
-
-    backend_instances[user.id].set_messages(data, message_content)
+            print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
+            try:
+                langchain_message, message_content = convert_to_langchain_message(data)
+                backend_instances[user.id].set_messages(langchain_message, message_content)
+            except ValueError as e:
+                print(f"Error: {str(e)}")
+                return jsonify({'message': 'Invalid message format!'}), 400
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host="localhost", port=int(os.environ.get('PORT')))
