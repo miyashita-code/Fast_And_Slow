@@ -333,15 +333,6 @@ def handle_message(data):
     """
     token = None
 
-    try:
-        print(f"chat message come data: {data}")
-    except Exception:
-        pass
-
-    try:
-        print(f"chat message come header args: {request.headers.args}")
-    except Exception:    
-        pass
 
     try:
         token = data['token']
@@ -363,7 +354,7 @@ def handle_message(data):
     user = UserAuth.query.filter_by(api_key="5163a9f2cf11cdc8a2cbc22cd95b4691fb04a9d1f1f41182830e6acb231ab10c").first()
 
     if user.id in backend_instances:
-        print(f"message received : {data['message']}, room : {request.sid}, bg : {backend_instances}")
+        print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
         backend_instances[user.id].set_messages(data['message'])
 
 if __name__ == '__main__':
