@@ -334,6 +334,16 @@ def handle_message(data):
     token = None
 
     try:
+        print(f"chat message come data: {data}")
+    except Exception:
+        pass
+
+    try:
+        print(f"chat message come header args: {request.headers.args}")
+    except Exception:    
+        pass
+
+    try:
         token = data['token']
     except Exception:
         pass
