@@ -131,6 +131,10 @@ class AutoGPT:
         pervious_messages_count = 0
         relay_rate = 1
 
+        last_instruction = ""
+        last_is_lend_ear = ""
+        last_showed_message_on_screen = ""
+
         while True and conseq_wait_count < THRED_CONSEQ_WAIT and loop_count < 100:
 
             if(isFin):
@@ -178,6 +182,8 @@ class AutoGPT:
             # give dialog history to Pander_Dialog_State (custom tool : arg that name is dialog_data is just buffer when agent give the arg)
             if action.name == PanderDialogState.get_tool_name():
                 action.args["dialog_data"] = get_messages()
+                action.args["autogpt_data"] = self.chat_history_memory.messages
+                action.args["current_state"] = {"instruction" : last_instruction, "isLendingEar" : last_is_lend_ear, "showedMessageOnScreen" : last_showed_message_on_screen}
 
             try:
                 # execute wait
@@ -212,8 +218,16 @@ class AutoGPT:
             if action.name == UpdataInstructions.get_tool_name():
                 send_socket("instruction", {"instruction" : action.args["instruction_text"], "isLendingEar" : action.args["isLendingEar"]})
 
+                # update last instruction and isLendingEar to pandering dialog state
+                last_is_lend_ear = action.args["isLendingEar"]
+                last_instruction = action.args["instruction_text"]
+
             if action.name == SendDirectMessageToUser.get_tool_name():
                 send_socket("telluser", {"titles" : action.args["instruction_title"], "detail" : action.args["instruction_detail"]})
+
+                # update last instruction and isLendingEar to pandering dialog state
+                last_showed_message_on_screen = action.args["instruction_title"]
+                last_instruction = action.args["instruction_detail"]
             
             
             if action.name in tools:
@@ -287,7 +301,7 @@ def autogpt_main(send_socket, get_messages, isFin):
     llm = ChatOpenAI(temperature=0, model=MODEL)
 
     # load google search tool and custom tools
-    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser()] #PanderDialogState()
+    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser(), PanderDialogState()]
 
     auto_gpt = AutoGPT.from_llm_and_tools(
         ai_name="認知症サポーター",
