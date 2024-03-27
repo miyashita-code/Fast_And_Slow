@@ -30,4 +30,6 @@ def convert_to_langchain_message(message):
         message_content = message.text
         return AIMessage(content=message_content), message_content
     else:
+        print(f"Invalid message type: {type(message)}")
         raise ValueError("Invalid message type")
+    
