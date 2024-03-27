@@ -28,6 +28,7 @@ class BackEndProcess:
         self.DIALOUGE_ID_TIMEOUT = 300 #(sec)
         self.dialogue_id = self.get_or_create_dialogue_id()
         self.db = db
+        self.isFin = False
         
 
 
@@ -40,7 +41,8 @@ class BackEndProcess:
         self.socketio.emit('announce', {'announce': 'Hello, autoGpt Started!'}, room=self.room)
 
         self.send_socket("instruction", "まずは、傾聴を心がけてください。ユーザーの状態を把握することが第一の目標です。虚偽の事実を伝えないように十分に注意してください。")
-        autogpt_main(self.send_socket, self.get_messages)
+        autogpt_main(self.send_socket, self.get_messages, self.isFin)
+
 
 
     def send_socket(self, event, data):
@@ -97,3 +99,9 @@ class BackEndProcess:
     def get_same_context_messages_desc(self, user_id, dialogue_id, limit=50) -> list[str]:
         messages = Message.query.filter_by(user_id=user_id, dialogue_id=dialogue_id).order_by(Message.timestamp.desc()).limit(limit).all()
         return [message.content for message in messages]
+    
+    def stop(self):
+        """ Stop the backend process. """
+        isFin = True
+        self.socketio.emit('announce', {'announce': 'autoGpt Stopped!'}, room=self.room)
+        self.socketio.disconnect(self.room)

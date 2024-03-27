@@ -119,7 +119,7 @@ class AutoGPT:
         )
 
 
-    def run(self, goals: List[str], send_socket : object, get_messages : object) -> str:
+    def run(self, goals: List[str], send_socket : object, get_messages : object, isFin) -> str:
         user_input = (
             "Determine which next command to use, "
             "and respond using the format specified above:"
@@ -132,6 +132,9 @@ class AutoGPT:
         relay_rate = 1
 
         while True and conseq_wait_count < THRED_CONSEQ_WAIT and loop_count < 100:
+
+            if(isFin):
+                break
             
 
             # Discontinue if continuous limit is reached
@@ -265,7 +268,7 @@ class AutoGPT:
 
 
 
-def autogpt_main(send_socket, get_messages):
+def autogpt_main(send_socket, get_messages, isFin):
 
     # Define your embedding model
     embeddings = OpenAIEmbeddings()
@@ -307,7 +310,8 @@ def autogpt_main(send_socket, get_messages):
             "よりよい応答のの方向性の決定を行い、インストラクションで具体的に事実に基づいて指示をする。"
         ], 
         send_socket=send_socket, 
-        get_messages=get_messages
+        get_messages=get_messages,
+        isFin=isFin
     )
 
 
