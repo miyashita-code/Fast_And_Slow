@@ -1,35 +1,21 @@
-from pydantic import BaseModel
-from typing import List, Optional
+import re
 from langchain.schema import HumanMessage, AIMessage
 
-from pydantic import BaseModel
-from typing import List, Optional
-
-class TextContent(BaseModel):
-    text: str
-
-class UserMessage(BaseModel):
-    name: Optional[str] = None
-    contents: List[TextContent]
-
-    class Config:
-        arbitrary_types_allowed = True
-
-class AiMessage(BaseModel):
-    text: str
-    toolExecutionRequests: Optional[str] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-
 def convert_to_langchain_message(message):
-    if isinstance(message, UserMessage):
-        message_content = message.contents[0].text if message.contents else ""
-        return HumanMessage(content=message_content), message_content
-    elif isinstance(message, AiMessage):
-        message_content = message.text
-        return AIMessage(content=message_content), message_content
+    if isinstance(message, str):
+        user_message_pattern = r'UserMessage\s*\{\s*name\s*=\s*(\w+|\w+)?\s*contents\s*=\s*\[TextContent\s*\{\s*text\s*=\s*"(.+?)"\s*}\]\s*}'
+        ai_message_pattern = r'AiMessage\s*\{\s*text\s*=\s*"(.+?)"\s*toolExecutionRequests\s*=\s*(\w+|\w+)?\s*}'
+
+        user_message_match = re.search(user_message_pattern, message)
+        ai_message_match = re.search(ai_message_pattern, message)
+
+        if user_message_match:
+            message_content = user_message_match.group(2)
+            return HumanMessage(content=message_content), message_content
+        elif ai_message_match:
+            message_content = ai_message_match.group(1)
+            return AIMessage(content=message_content), message_content
+        else:
+            raise ValueError("Invalid message format")
     else:
-        print(f"Invalid message type: {type(message)}")
-        raise ValueError("Invalid message type")
-    
+        raise ValueError(f"Invalid message type: {type(message)}")
