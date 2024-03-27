@@ -207,7 +207,7 @@ class AutoGPT:
 
             # send instruction to the server
             if action.name == UpdataInstructions.get_tool_name():
-                send_socket("instruction", {"instruction" : action.args["instruction_text"]})
+                send_socket("instruction", {"instruction" : action.args["instruction_text"], "isLendingEar" : action.args["isLendingEar"]})
 
             if action.name == SendDirectMessageToUser.get_tool_name():
                 send_socket("telluser", {"titles" : action.args["instruction_title"], "detail" : action.args["instruction_detail"]})
