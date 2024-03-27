@@ -20,7 +20,7 @@ class SendDirectMessageToUser(BaseTool):
         "instruction is used to decide what to do next or how to explain the next step by interface agent who really support dementia user to empower."
         "instruction_title must be updated relatively frequently to make the conversation better on realtime. but, It is easier for users to understand if the title is somewhat consistent."
         "instruction_detail is used to make client agent know anoud the details of the instruction_title in other word, this detail help cient support agent to do better support for dementia user . It is important to provide detailed information to the user to help them understand the context of the conversation and the actions they need to take."
-        "***注意***注意***注意***出力は日本語でなくてなならない。そして何がどうであるのでどうしたいかを明確にすること。***注意***注意***注意***"
+        "***注意***注意***注意***出力は日本語でなくてなならない。そして何がどうであるのでどうしたいかを明確にすること。またわかりました。`どんなことが考えているのか、お話ししてみませんか？`など鼻につくおせっかいな話し方は避けられるべきである。うまく傾聴と指示、サポートで使い分けること!'お困りですね?'はスティグマでくそ***注意***注意***注意***"
         "特に認知症の当事者の感じている世界を想像して寄り添うことが大切である。通常時は概要を振り返れるように細かく更新し、特別なインストラクションの最中は逐次的なプロンプトを表示すること。"
         "[example お風呂の準備の場面の一幕]"
         "instruction_title : 'タオルを持つ。タオルはXXのYYにある。'"
@@ -28,6 +28,7 @@ class SendDirectMessageToUser(BaseTool):
         "[example 傾聴中の一幕]"
         "instruction_title : 'AがBした。BはCだった。...'"
         "instruction_detail : 話の全体像をわかりやすくするために要点を抜き出し、'AがBした。BはCだった。'のように共有した。"
+        "**注意***注意***注意***出力は日本語でなくてなならない。**注意***注意***注意***"
     )
 
 
