@@ -18,7 +18,7 @@ import firebase_admin
 from firebase_admin import credentials, messaging
 
 
-from modules import db, UserAuth, BackEndProcess, convert_to_langchain_message
+from modules import db, UserAuth, BackEndProcess, parse_to_langchain_message_str
 
 # Load environment variables
 load_dotenv()
@@ -348,8 +348,8 @@ def handle_message(data):
     if user.id in backend_instances:
             print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
             try:
-                langchain_message, message_content = convert_to_langchain_message(data)
-                backend_instances[user.id].set_messages(langchain_message, message_content)
+                message_content = parse_to_langchain_message_str(data)
+                backend_instances[user.id].set_messages(message_content)
             except ValueError as e:
                 print(f"Error: {str(e)}")
                 return jsonify({'message': 'Invalid message format!'}), 400
