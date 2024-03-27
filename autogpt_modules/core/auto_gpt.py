@@ -105,8 +105,8 @@ class AutoGPT:
         chain = LLMChain(llm=llm, prompt=prompt)
 
         # for debug turn on verbose
-        #langchain.globals.set_verbose(True)
-        #chain.verbose = True 
+        langchain.globals.set_verbose(True)
+        chain.verbose = True 
 
         return cls(
             ai_name,
