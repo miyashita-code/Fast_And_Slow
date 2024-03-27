@@ -17,7 +17,8 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, messaging
 
-from langchain_openai.chat_models import UserMessage, AiMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
+
 
 from modules import db, UserAuth, BackEndProcess
 
