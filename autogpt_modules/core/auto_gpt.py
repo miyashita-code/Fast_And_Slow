@@ -210,7 +210,7 @@ class AutoGPT:
                 send_socket("instruction", {"instruction" : action.args["instruction_text"]})
 
             if action.name == SendDirectMessageToUser.get_tool_name():
-                send_socket("telluser", {"title" : action.args["instruction_title"], "detail" : action.args["instruction_detail"]})
+                send_socket("telluser", {"titles" : action.args["instruction_title"], "detail" : action.args["instruction_detail"]})
             
             
             if action.name in tools:
