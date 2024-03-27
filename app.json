@@ -3,7 +3,7 @@
       "postdeploy": "flask db upgrade"
     },
     "env": {
-      "FLASK_APP": "app"
+          "PYTHON_ENV": "production"
     },
     "formation": {
       "web": {
