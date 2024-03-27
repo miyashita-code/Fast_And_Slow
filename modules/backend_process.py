@@ -84,11 +84,11 @@ class BackEndProcess:
         else:
             return str(uuid.uuid4())
 
-    def set_messages(self, message : BaseMessage, message_content : str):
+    def set_messages(self, message_content : str):
         new_message = Message(user_id=self.client_data.id, dialogue_id=self.dialogue_id, content=message_content)
         self.db.session.add(new_message)
         self.db.session.commit()
-        self.messages.append(message)
+        self.messages.append(message_content)
 
     def get_recent_messages_desc(self, user_id, limit=50) -> list[str]:
         messages = Message.query.filter_by(user_id=user_id).order_by(Message.timestamp.desc()).limit(limit).all()
