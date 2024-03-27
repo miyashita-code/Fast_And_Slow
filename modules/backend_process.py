@@ -3,6 +3,7 @@ import uuid
 
 from .models import Message
 from autogpt_modules.core.auto_gpt import autogpt_main
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
 
 
 class BackEndProcess:
@@ -38,7 +39,7 @@ class BackEndProcess:
         print(f"say hello : {self.room}")
         self.socketio.emit('announce', {'announce': 'Hello, autoGpt Started!'}, room=self.room)
 
-        self.send_instruction("まずは、傾聴を心がけてください。ユーザーの状態を把握することが第一の目標です。虚偽の事実を伝えないように十分に注意してください。")
+        self.send_socket("instruction", "まずは、傾聴を心がけてください。ユーザーの状態を把握することが第一の目標です。虚偽の事実を伝えないように十分に注意してください。")
         autogpt_main(self.send_instruction, self.get_messages)
 
 
@@ -57,7 +58,7 @@ class BackEndProcess:
         print("*" * 20)
         print("\n\n")
         self.socketio.emit(event, data, room=self.room)
-        
+
     def get_messages(self):
         """ Get the message list. """
         return self.messages
@@ -83,8 +84,8 @@ class BackEndProcess:
         else:
             return str(uuid.uuid4())
 
-    def set_messages(self, message):
-        new_message = Message(user_id=self.client_data.id, dialogue_id=self.dialogue_id, content=message)
+    def set_messages(self, message : BaseMessage, message_content : str):
+        new_message = Message(user_id=self.client_data.id, dialogue_id=self.dialogue_id, content=message_content)
         self.db.session.add(new_message)
         self.db.session.commit()
         self.messages.append(message)

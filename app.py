@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, messaging
 
+from langchain_openai.chat_models import UserMessage, AiMessage
+
 from modules import db, UserAuth, BackEndProcess
 
 # Load environment variables
@@ -331,16 +333,8 @@ def handle_message(data):
     """
     Handle chat messages. Validate token and process message.
     """
-    token = None
-
-
-    try:
-        token = data['token']
-    except Exception:
-        pass
-
-    if not token:
-        token = request.args.get('token')
+    # get token from headers or query parameters
+    token = request.args.get('token')
 
     is_valid, current_user, error_message = check_token(token)
     
@@ -350,12 +344,21 @@ def handle_message(data):
 
 
     print(f"chat message come")
-
     user = UserAuth.query.filter_by(api_key="5163a9f2cf11cdc8a2cbc22cd95b4691fb04a9d1f1f41182830e6acb231ab10c").first()
 
+    if not (isinstance(data, UserMessage) or isinstance(data, AiMessage)):
+        return jsonify({'message': 'Invalid message format!'}), 400
+
+    message_content = ""
     if user.id in backend_instances:
         print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
-        backend_instances[user.id].set_messages(data['message'])
+        message_content = ""
+    if isinstance(data, UserMessage):
+        message_content = data.contents[0].text if data.contents else ""
+    elif isinstance(data, AiMessage):
+        message_content = data.text
+
+    backend_instances[user.id].set_messages(data, message_content)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host="localhost", port=int(os.environ.get('PORT')))
