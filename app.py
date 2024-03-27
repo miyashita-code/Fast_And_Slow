@@ -317,16 +317,30 @@ def handle_connect(auth=None):
 @socketio.on('disconnect')
 def handle_disconnect():
     """
-    Handle socket disconnection. Leave room and stop backend process.
+    Handle socket disconnection.
+    Leave room and stop backend process.
     """
+    token = request.headers.get('token')
+    if not token:
+        token = request.args.get('token')
+
+    is_valid, current_user, error_message = check_token(token)
+    if not is_valid:
+        print("Invalid token during disconnect")
+        return
+
+    print(f"Socket disconnected: {current_user.name}")
+
+    # Leave room
     room = request.sid
     leave_room(room)
 
-    for user_id, bp in backend_instances.items():
+    # Stop and remove backend process instance for the disconnected user
+    if current_user.id in backend_instances:
+        bp = backend_instances[current_user.id]
         if bp.get_room() == room:
-            del backend_instances[user_id]
-            break
-
+            bp.stop()
+            del backend_instances[current_user.id]
 
 @socketio.on('chat_message')
 def handle_message(data):
