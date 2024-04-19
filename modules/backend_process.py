@@ -5,6 +5,8 @@ from .models import Message
 from autogpt_modules.core.auto_gpt import autogpt_main
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
 
+from flask_socketio import disconnect
+
 
 class BackEndProcess:
     """
@@ -105,4 +107,4 @@ class BackEndProcess:
         """ Stop the backend process. """
         isFin = True
         self.socketio.emit('announce', {'announce': 'autoGpt Stopped!'}, room=self.room)
-        self.socketio.disconnect(self.room)
+        disconnect(self.room)
