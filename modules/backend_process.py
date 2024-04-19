@@ -41,11 +41,9 @@ class BackEndProcess:
         print(f"run : {self.room}")
         print(f"say hello : {self.room}")
         self.socketio.emit('announce', {'announce': 'Hello, autoGpt Started!'}, room=self.room)
-
-        self.send_socket("instruction", "まずは、傾聴を心がけてください。ユーザーの状態を把握することが第一の目標です。虚偽の事実を伝えないように十分に注意してください。")
+        self.send_socket("instruction", {"instruction" : "まずは、傾聴を心がけてください。ユーザーの状態を把握することが第一の目標です。虚偽の事実を伝えないように十分に注意してください。", "isLendingEar" : True})
         self.isFin = False
         autogpt_main(self.send_socket, self.get_messages, self.isFin)
-
 
 
     def send_socket(self, event, data):
