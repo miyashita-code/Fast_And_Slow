@@ -2,7 +2,7 @@ import datetime
 import uuid
 
 from .models import Message
-from autogpt_modules.core.auto_gpt import autogpt_main
+from autogpt_modules.core.auto_gpt import AutoGPTController
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
 
 from flask_socketio import disconnect
@@ -30,7 +30,7 @@ class BackEndProcess:
         self.DIALOUGE_ID_TIMEOUT = 300 #(sec)
         self.dialogue_id = self.get_or_create_dialogue_id()
         self.db = db
-        self.isFin = False
+        self.auto_gpt_controller = AutoGPTController()
         
 
 
@@ -42,8 +42,7 @@ class BackEndProcess:
         print(f"say hello : {self.room}")
         self.socketio.emit('announce', {'announce': 'Hello, autoGpt Started!'}, room=self.room)
         self.send_socket("instruction", {"instruction" : "まずは、傾聴を心がけてください。ユーザーの状態を把握することが第一の目標です。虚偽の事実を伝えないように十分に注意してください。", "isLendingEar" : True})
-        self.isFin = False
-        autogpt_main(self.send_socket, self.get_messages, self.isFin)
+        self.auto_gpt_controller.main(self.send_socket, self.get_messages)
 
 
     def send_socket(self, event, data):
@@ -103,6 +102,6 @@ class BackEndProcess:
     
     def stop(self):
         """ Stop the backend process. """
-        isFin = True
+        self.auto_gpt_controller.breakLoop()
         self.socketio.emit('announce', {'announce': 'autoGpt Stopped!'}, room=self.room)
         disconnect(self.room)
