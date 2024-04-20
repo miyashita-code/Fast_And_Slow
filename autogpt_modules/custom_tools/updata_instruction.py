@@ -18,7 +18,7 @@ class UpdataInstructions(BaseTool):
         "instruction_textの出力は日本語でなくてなならない。そして何がどうであるのでどうしたいかを明確にすること。現状のコンテキストと今後の想定も含めるとわかりやすい。"
         "isLendingEarの出力は'true' or 'false'でなくてはならない。"
         "instruction_text and isLendingEar must be updated frequently to make the conversation better on realtime."
-        "特に認知症の当事者の感じている世界を想像して寄り添うことが大切である。誇りをもって、尊敬の念をもって、寄り添うことが大切である。"
+        "特に認知症の当事者の感じている世界を想像して寄り添うことが大切である。誇りをもって、尊敬の念をもって、寄り添うことが大切である。でたらめな話題を振るべきだはない。"
     )
 
 
