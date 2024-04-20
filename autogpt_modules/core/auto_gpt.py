@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import os
+import sys
+
 from typing import List, Optional
 
 import langchain.globals
 
 from langchain_openai import ChatOpenAI
+import anthropic
+from langchain_anthropic import ChatAnthropic
 from langchain.chains.llm import LLMChain
 from langchain_core.language_models import BaseChatModel
 from langchain.memory import ChatMessageHistory
@@ -37,6 +42,7 @@ from langchain_openai import OpenAIEmbeddings
 import faiss
 import time
 
+
 from langchain_community.docstore import InMemoryDocstore
 from langchain_community.vectorstores import FAISS
 
@@ -51,7 +57,7 @@ from autogpt_modules.custom_tools import (
 
 )
 
-from .custom_congif import MODEL, THRED_CONSEQ_WAIT
+from .custom_congif import MODEL,MODEL_TYPE, THRED_CONSEQ_WAIT
 from .autogpt_prompt import AutoGPTPrompt
 
 load_dotenv()
@@ -305,8 +311,11 @@ class AutoGPTController:
 
 
         # init llm
-        llm = ChatOpenAI(temperature=0, model=MODEL)
-
+        if MODEL_TYPE == "openai":  
+            llm = ChatOpenAI(temperature=0, model=MODEL)
+        elif MODEL_TYPE == "anthropic":
+            anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
+            llm = ChatAnthropic(model=MODEL,anthropic_api_key=anthropic.api_key, temperature=0)
         # load google search tool and custom tools
         tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser()] #PanderDialogState()
 
@@ -346,6 +355,7 @@ class AutoGPTController:
 
 
 if __name__ == "__main__":
+
     auto_gpt_controller = AutoGPTController()
     auto_gpt_controller.main()
 
