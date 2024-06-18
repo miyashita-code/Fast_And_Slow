@@ -317,7 +317,7 @@ class AutoGPTController:
             anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
             llm = ChatAnthropic(model=MODEL,anthropic_api_key=anthropic.api_key, temperature=0)
         # load google search tool and custom tools
-        tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser()] #PanderDialogState()
+        tools = tools = load_tools(["serpapi"], llm=llm) + [UpdataInstructions(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser()] #PanderDialogState(), DoNothing(), 
 
         auto_gpt = AutoGPT.from_llm_and_tools(
             ai_name="認知症サポーター",

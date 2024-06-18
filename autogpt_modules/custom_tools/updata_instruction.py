@@ -19,6 +19,8 @@ class UpdataInstructions(BaseTool):
         "isLendingEarの出力は'true' or 'false'でなくてはならない。"
         "instruction_text and isLendingEar must be updated frequently to make the conversation better on realtime."
         "特に認知症の当事者の感じている世界を想像して寄り添うことが大切である。誇りをもって、尊敬の念をもって、寄り添うことが大切である。でたらめな話題を振るべきだはない。"
+        "また, ここで送信される内容はそのまま読まれる可能性もあるので, 発話として全く失礼がない、ものである必要がある. (過度な介入や決めつけ、「お困りですか？」「お助けしてほしいことはありますか？」などは決めつけられたと感じて不快なので避けられるべきだ)"
+        "また、反応をせかすことがあってはならない. 相手のペースで, ゆっくりと寄り添うことが大切. 余計なことは言うな！"
     )
 
 
