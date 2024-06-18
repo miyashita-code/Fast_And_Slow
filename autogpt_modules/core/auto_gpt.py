@@ -12,7 +12,7 @@ from langchain.schema import (
     BaseChatMessageHistory,
     Document,
 )
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain.tools.base import BaseTool
 from langchain_community.tools.human.tool import HumanInputRun
@@ -22,7 +22,6 @@ from langchain_experimental.autonomous_agents.autogpt.output_parser import (
     AutoGPTOutputParser,
     BaseAutoGPTOutputParser,
 )
-from langchain_experimental.autonomous_agents.autogpt.prompt import AutoGPTPrompt
 from langchain_experimental.autonomous_agents.autogpt.prompt_generator import (
     FINISH_NAME,
 )
@@ -31,12 +30,12 @@ from langchain_experimental.pydantic_v1 import ValidationError
 # Lang chain側のインポート
 from datetime import datetime
 from langchain_openai import OpenAIEmbeddings
-from langchain.memory import VectorStoreRetrieverMemory
-from langchain.chains import ConversationChain
-from langchain.prompts import PromptTemplate
+
+
 
 
 import faiss
+import time
 
 from langchain_community.docstore import InMemoryDocstore
 from langchain_community.vectorstores import FAISS
@@ -47,8 +46,13 @@ from autogpt_modules.custom_tools import (
     PanderDialogState,
     GetIndividualCareInfoFromDB,
     UpdataInstructions,
-    DoNothing
+    DoNothing,
+    SendDirectMessageToUser
+
 )
+
+from .custom_congif import MODEL, THRED_CONSEQ_WAIT
+from .autogpt_prompt import AutoGPTPrompt
 
 load_dotenv()
 
@@ -94,7 +98,7 @@ class AutoGPT:
             ai_name=ai_name,
             ai_role=ai_role,
             tools=tools,
-            input_variables=["memory", "messages", "goals", "user_input"],
+            input_variables=["memory", "messages", "goals", "user_input", "dialog_datas"],
             token_counter=llm.get_num_tokens,
         )
         human_feedback_tool = HumanInputRun() if human_in_the_loop else None
@@ -115,27 +119,47 @@ class AutoGPT:
         )
 
 
-    def run(self, goals: List[str]) -> str:
+    def run(self, goals: List[str], send_socket : object, get_messages : object, isFin) -> str:
         user_input = (
             "Determine which next command to use, "
             "and respond using the format specified above:"
         )
         # Interaction Loop
         loop_count = 0
-        while True:
+        is_consequently_wait = False
+        conseq_wait_count = 0
+        pervious_messages_count = 0
+        relay_rate = 1
+
+        last_instruction = ""
+        last_is_lend_ear = ""
+        last_showed_message_on_screen = ""
+
+        print("************************\n\n\n************************\n\n\nStart AutoGPT************************\n\n\n************************")
+
+        while True and conseq_wait_count < THRED_CONSEQ_WAIT and loop_count < 100:
+
+            if(isFin):
+                print("Finish")
+                break
+            
+
             # Discontinue if continuous limit is reached
             loop_count += 1
             
             # update chat history count
             self.current_size_chat_history = len(self.chat_history_memory.messages)
 
+            # Get messages of dialog, then convert to BaseMessages
+            messages : list[BaseMessage] = self.textMessages2BaseMessages(get_messages())
 
             # Send message to AI, get response
             input_dict = {
                 "goals": goals,
                 "messages": self.chat_history_memory.messages,
                 "memory": self.memory,
-                "user_input": user_input
+                "user_input": user_input,
+                "dialog_datas": messages,    
             }
 
             # If you have additional configurations, create a RunnableConfig object
@@ -159,23 +183,54 @@ class AutoGPT:
                 return action.args["response"]
 
             # give dialog history to Pander_Dialog_State (custom tool : arg that name is dialog_data is just buffer when agent give the arg)
-            if action.name == Pander_Dialog_State.get_tool_name():
-                action.args["dialog_data"] = self.get_user_dialog_history()
+            if action.name == PanderDialogState.get_tool_name():
+                action.args["dialog_data"] = get_messages()
+                action.args["autogpt_data"] = self.chat_history_memory.messages
+                action.args["current_state"] = {"instruction" : last_instruction, "isLendingEar" : last_is_lend_ear, "showedMessageOnScreen" : last_showed_message_on_screen}
 
             try:
                 # execute wait
-                if action.name == Do_Nothing.get_tool_name() and action.args["is_wait_untill_dialog_upadated"]:
+                if action.name == DoNothing.get_tool_name() and action.args["is_wait_untill_dialog_upadated"]:
                     # wait untill dialog is updated or 5sec passed
                     start_time = datetime.now()
 
+                    if is_consequently_wait: 
+                        conseq_wait_count += 1
+                        relay_rate *= 2
+
+                    is_consequently_wait = True
+                    
+
                     while True:
-                        if self.current_size_chat_history < len(self.chat_history_memory.messages):
+                        if pervious_messages_count < len(get_messages()):
                             break
-                        elif (datetime.now() - start_time).seconds > Do_Nothing.TIMEOUT_SEC:
+                        elif (datetime.now() - start_time).seconds > (DoNothing.get_wait_timeout_limit() * relay_rate):
                             break
+
+                        # delay 0.1sec
+                        time.sleep(0.1)
+                else:
+                    is_consequently_wait = False
+                    conseq_wait_count = 0
+                    relay_rate = 1
 
             except KeyError:
                 pass
+
+            # send instruction to the server
+            if action.name == UpdataInstructions.get_tool_name():
+                send_socket("instruction", {"instruction" : action.args["instruction_text"], "isLendingEar" : action.args["isLendingEar"]})
+
+                # update last instruction and isLendingEar to pandering dialog state
+                last_is_lend_ear = action.args["isLendingEar"]
+                last_instruction = action.args["instruction_text"]
+
+            if action.name == SendDirectMessageToUser.get_tool_name():
+                send_socket("telluser", {"titles" : action.args["instruction_title"], "detail" : action.args["instruction_detail"]})
+
+                # update last instruction and isLendingEar to pandering dialog state
+                last_showed_message_on_screen = action.args["instruction_title"]
+                last_instruction = action.args["instruction_detail"]
             
             
             if action.name in tools:
@@ -205,6 +260,7 @@ class AutoGPT:
             memory_to_add = (
                 f"Assistant Reply: {assistant_reply} " f"\nResult: {result} "
             )
+
             if self.feedback_tool is not None:
                 feedback = f"\n{self.feedback_tool.run('Input: ')}"
                 if feedback in {"q", "stop"}:
@@ -215,18 +271,21 @@ class AutoGPT:
             self.memory.add_documents([Document(page_content=memory_to_add)])
             self.chat_history_memory.add_message(SystemMessage(content=result))
 
+            pervious_messages_count = len(get_messages())
 
-    def get_user_dialog_history(self) -> str:
+    def textMessages2BaseMessages(self, messages: list[str]) -> list[BaseMessage]:
+        baseMessages = []
+        for message in messages:
+            if message.split(":")[0] == "user":
+                baseMessages.append(HumanMessage(content=message))
+            elif message.split(":")[0] == "assistant":
+                baseMessages.append(AIMessage(content=message))
 
-        ################################################################################
-        ###                  TODO : user dialog history を取得する                    ###
-        ################################################################################
+        return baseMessages[::-1]
 
-        pass
 
-        return "dialog history ..."
 
-def main():
+def autogpt_main(send_socket, get_messages, isFin):
 
     # Define your embedding model
     embeddings = OpenAIEmbeddings()
@@ -242,14 +301,14 @@ def main():
 
 
     # init llm
-    llm = ChatOpenAI(temperature=0, model="gpt-4-1106-preview")
+    llm = ChatOpenAI(temperature=0, model=MODEL)
 
     # load google search tool and custom tools
-    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), PanderDialogState()]
+    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser(), PanderDialogState()]
 
     auto_gpt = AutoGPT.from_llm_and_tools(
         ai_name="認知症サポーター",
-        ai_role="認知症患者の生活における意思決定支援や不安解消を行う情緒的なケアを行うエージェント",
+        ai_role="認知症患者の生活における意思決定支援や不安解消を行う情緒的なケアを行うエージェントの裏方の支援を行う.userとの対話によるケアサポートの方向性を決定し, clientにinstructionを送信して制御する.特に傾聴とインストラクションの切り替えの指示出しが肝である。",
         memory=memory,
         tools=tools,
         llm=llm,
@@ -260,11 +319,21 @@ def main():
     # Set verbose to be true
     #langchain.globals.set_verbose(True)
 
-    auto_gpt.run(goals=["対話の履歴から、適切な問題を設定する。", "よりよい応答のの方向性の決定を行う。"])
+    auto_gpt.run(
+        goals=[
+            "状況が把握できるまでは傾聴のための指示を行う", 
+            "対話の履歴から、適切な問題を設定する。",
+            "必要に応じてデータベースのデータを参照する。",  
+            "よりよい応答のの方向性の決定を行い、インストラクションで具体的に事実に基づいて指示をする。"
+        ], 
+        send_socket=send_socket, 
+        get_messages=get_messages,
+        isFin=isFin
+    )
 
 
 
 
 
 if __name__ == "__main__":
-    main()
+    autogpt_main()

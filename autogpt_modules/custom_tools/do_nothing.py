@@ -1,7 +1,7 @@
 import time
 from langchain.tools.base import BaseTool
 
-TIMEOUT_SEC = 5
+
 
 class DoNothing(BaseTool):
     """Tool that does nothing or just wait 100ms for waiting conversion's procedure."""
@@ -11,6 +11,7 @@ class DoNothing(BaseTool):
         "Do nothing, and if is_wait_untill_dialog_upadated is True, wait untill dialog is updated."
         "Input is_wait_untill_dialog_upadated shold be a boolean value to decide wait or not."
     )
+
 
     
     def _do_nothing(self, is_wait_untill_dialog_upadated=False) -> str:
@@ -39,4 +40,4 @@ class DoNothing(BaseTool):
 
     @classmethod
     def get_wait_timeout_limit(cls) -> int:
-        return TIMEOUT_SEC
+        return 5 #(sec) TIMEOUT_SEC

@@ -4,29 +4,47 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 
 import threading
-import time
+import requests
 import jwt
 import datetime
 import uuid
 import hashlib
 import os
+import json
 import requests
 from dotenv import load_dotenv
-from modules.models import db, UserAuth
+
+import firebase_admin
+from firebase_admin import credentials, messaging
+
+
+from modules import db, UserAuth, BackEndProcess, parse_to_langchain_message_str
 
 # Load environment variables
 load_dotenv()
 
 # Firebase API key for authentication
 FIREBASE_API_KEY = os.environ.get('FIREBASE_API_KEY')
+firebase_credentials = json.loads(os.environ.get('FIREBASE_CREDENTIALS'))
+cred = credentials.Certificate(firebase_credentials)
+firebase_admin.initialize_app(cred)
 
 # Initialize Flask application
 app = Flask(__name__)
 CORS(app)
 
+# Get DATABASE_URL from Heroku's environment variables
+SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+
+# If the URL starts with 'postgres://', replace it with 'postgresql://'
+# This is necessary because SQLAlchemy doesn't accept 'postgres://' scheme
+if SQLALCHEMY_DATABASE_URI.startswith("postgres://"):
+    SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace("postgres://", "postgresql://", 1)
+
+# Update SQLAlchemy configuration with the corrected DATABASE_URL
 # Configure Flask app with environment variables
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY_FLASK')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('SQLALCHEMY_DATABASE_URI')
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database and migration
@@ -75,49 +93,6 @@ def sign_in_with_email_and_password(email: str, password: str, api_key=FIREBASE_
         pass
     return None, error_message
 
-class BackEndProcess:
-    """
-    Class representing the backend process for handling socket connections.
-    """
-    def __init__(self, socketio, room, client_data):
-        """
-        Initialize the backend process.
-
-        Args:
-        socketio: SocketIO instance.
-        room (str): Room ID.
-        client_data: Client-related data.
-        """
-        self.room = room
-        self.messages = []
-        self.active = True
-        self.client_data = client_data
-        self.socketio = socketio
-
-    def run(self):
-        """
-        Run the backend process. Emit instructions based on message length.
-        """
-        while self.active:
-            time.sleep(5)
-            message_length = sum(len(m) for m in self.messages)
-            self.socketio.emit('instruction', {'length': message_length}, room=self.room)
-
-    def stop(self):
-        """ Stop the backend process. """
-        self.active = False
-
-    def set_messages(self, message):
-        """ Add a message to the message list. """
-        self.messages.append(message)
-
-    def set_room(self, room):
-        """ Set the room ID. """
-        self.room = room
-
-    def get_room(self):
-        """ Get the room ID. """
-        return self.room
 
 def check_token(token):
     """
@@ -181,6 +156,64 @@ def create_user():
 
     return render_template("create_user.html", usr=usr)
 
+@app.route('/fcm/console', methods=['GET', 'POST'])
+def fcm_console():
+    usr = session.get('usr')
+    if usr is None:
+        return redirect(url_for('login'))
+    
+    # user_authテーブルからfcm_tokenの一覧を取得
+    users = UserAuth.query.filter(UserAuth.fcm_token != None).all()
+    token_list = [user.fcm_token for user in users]
+    
+    message_sent = False
+    success = False
+    response_msg = ""
+    sent_json = ""
+    
+    if request.method == 'POST':
+        registration_token = request.form.get('registration_token')
+        notifyDisplayInfo = request.form.get('notifyDisplayInfo')
+        notifyDetail = request.form.get('notifyDetail')
+        notifySpeechReading = request.form.get('notifySpeechReading')
+
+        message_data = {
+            'data': {
+                'notifyDisplayInfo': notifyDisplayInfo,
+                'notifyDetail': notifyDetail,
+                'notifySpeechReading': notifySpeechReading
+            },
+            'android': messaging.AndroidConfig(priority='high')
+        }
+
+        if request.form.get('send_to_all') == 'on':
+            message_data['topic'] = 'all'
+        else:
+            message_data['token'] = registration_token
+
+        try:
+            response = messaging.send(messaging.Message(**message_data))
+            message_sent = True
+            success = True
+            response_msg = f'Successfully sent message: {response}'
+
+            def serialize_message_data(data):
+                serialized_data = {}
+                for key, value in data.items():
+                    if isinstance(value, messaging.AndroidConfig):
+                        serialized_data[key] = {'priority': value.priority}
+                    else:
+                        serialized_data[key] = value
+                return serialized_data
+
+            sent_json = json.dumps(serialize_message_data(message_data), indent=4)
+        except Exception as e:
+            message_sent = True
+            success = False
+            response_msg = f'Failed to send message: {e}'
+    
+    return render_template("fcm_console.html", usr=usr, message_sent=message_sent, success=success,
+                           response_msg=response_msg, sent_json=sent_json, token_list=token_list)
 @app.route('/register', methods=['POST'])
 def register_user():
     """
@@ -223,16 +256,48 @@ def get_token():
         return jsonify({'token': token})
     else:
         return jsonify({'message': 'Invalid API Key'}), 401
+    
+@app.route('/api/fcm/token_register', methods=['POST'])
+def register_fcm_token():
+    """
+    Register FCM token for push notifications.
+    """
+    api_key = request.headers.get('API-Key')
+    fcm_token = request.headers.get('FCM-Token')
+
+    # Get user by API key
+    user = UserAuth.query.filter_by(api_key=api_key).first()
+
+    if not user:
+        return jsonify({'message': 'Invalid API Key'}), 401
+
+    # Update FCM token
+    user.fcm_token = fcm_token
+    db.session.commit()
+
+    return jsonify({'message': 'FCM token registered successfully!'})
+    
+@app.route('/get_reminders', methods=['GET'])
+def get_reminders():
+
+
+    return jsonify([{"time": 1708595280, "tellmessage": "テスト", "detail": "開発テスト用です"}])
 
 @socketio.on('connect')
-def handle_connect():
+def handle_connect(auth=None):
     """
     Handle socket connection. Join room and create/update backend process instance.
     """
+    print(f"handshake tryal : {auth}")
     token = request.headers.get('token')
+
+    if not token:
+        token = request.args.get('token')
+
     is_valid, current_user, error_message = check_token(token)
 
     if not is_valid:
+        print("valid handshake")
         return jsonify({'message': error_message}), 403
 
     print(f"socket connected : {current_user.name}")
@@ -243,40 +308,67 @@ def handle_connect():
 
     # Manage backend process instance for the connected user
     if current_user.id not in backend_instances:
-        bp = BackEndProcess(socketio, room, current_user)
+        bp = BackEndProcess(socketio, room, current_user, db)
         backend_instances[current_user.id] = bp
         threading.Thread(target=bp.run).start()
     else:
         backend_instances[current_user.id].set_room(room)
 
+
 @socketio.on('disconnect')
 def handle_disconnect():
     """
-    Handle socket disconnection. Leave room and stop backend process.
+    Handle socket disconnection.
+    Leave room and stop backend process.
     """
+    token = request.headers.get('token')
+    if not token:
+        token = request.args.get('token')
+
+    is_valid, current_user, error_message = check_token(token)
+    if not is_valid:
+        print("Invalid token during disconnect")
+        return
+
+    print(f"Socket disconnected: {current_user.name}")
+
+    # Leave room
     room = request.sid
     leave_room(room)
 
-    for user_id, bp in backend_instances.items():
+    # Stop and remove backend process instance for the disconnected user
+    if current_user.id in backend_instances:
+        bp = backend_instances[current_user.id]
         if bp.get_room() == room:
             bp.stop()
-            del backend_instances[user_id]
-            break
+            del backend_instances[current_user.id]
 
 @socketio.on('chat_message')
 def handle_message(data):
     """
     Handle chat messages. Validate token and process message.
     """
-    token = data['token']
+    # get token from headers or query parameters
+    token = request.args.get('token')
+
     is_valid, current_user, error_message = check_token(token)
+    
 
     if not is_valid:
         return jsonify({'message': error_message}), 403
 
-    if current_user.id in backend_instances:
-        print(f"message received : {data['message']}, room : {request.sid}, bg : {backend_instances}")
-        backend_instances[current_user.id].set_messages(data['message'])
+
+    print(f"chat message come")
+    user = UserAuth.query.filter_by(api_key="5163a9f2cf11cdc8a2cbc22cd95b4691fb04a9d1f1f41182830e6acb231ab10c").first()
+
+    if user.id in backend_instances:
+            print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
+            try:
+                message_content = parse_to_langchain_message_str(data)
+                backend_instances[user.id].set_messages(message_content)
+            except ValueError as e:
+                print(f"Error: {str(e)}")
+                return jsonify({'message': 'Invalid message format!'}), 400
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host="localhost", port=int(os.environ.get('PORT')))

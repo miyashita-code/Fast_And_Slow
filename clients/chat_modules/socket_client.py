@@ -2,6 +2,7 @@ import os
 import requests
 import socketio
 from dotenv import load_dotenv
+import time
 
 # Load the .env file to access environment variables
 load_dotenv()
@@ -11,6 +12,10 @@ class SocketClient:
         # Retrieve API key and URL from environment variables
         self.api_key = os.getenv('OWN_API_KEY')
         self.url = os.getenv('SERVER_URL')
+
+        print(f'API key: {self.api_key}')
+        print(f'Server URL: {self.url}')
+
         self.sio = socketio.Client()
         self.configure_events()
         self.callback_function = None
@@ -44,11 +49,16 @@ class SocketClient:
             if self.callback_function:
                 self.callback_function(data)
 
+        @self.sio.on('announce')
+        def on_announce(data):
+            # Event triggered when an announcement is received from the server
+            print(f'Announcement: {data}')
+
     def connect(self):
         # Function to connect to the Socket.IO server
         self.token = self.__get_token()
         if self.token:
-            self.sio.connect(self.url, headers={'token': self.token}, transports='websocket')
+            self.sio.connect(self.url, headers={'token': self.token}, transports=['websocket', 'polling'])
         else:
             # Print message if token fetch fails
             print('Token fetch failed')
