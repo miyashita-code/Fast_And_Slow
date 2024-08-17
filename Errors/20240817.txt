@@ -1,0 +1,63 @@
+UoT controller Test Error
+
+<Set context> : user : 
+<Deal user response> called : user : 
+<Deal user response> : User response
+Traceback (most recent call last):
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\output_parsers\json.py", line 84, in parse_result
+    return parse_json_markdown(text)
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\utils\json.py", line 147, in parse_json_markdown
+    return _parse_json(json_str, parser=parser)
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\utils\json.py", line 163, in _parse_json 
+    return parser(json_str)
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\utils\json.py", line 118, in parse_partial_json
+    return json.loads(s, strict=strict)
+  File "C:\Users\miyam\AppData\Local\Programs\Python\Python39\lib\json\__init__.py", line 359, in loads
+    return cls(**kw).decode(s)
+  File "C:\Users\miyam\AppData\Local\Programs\Python\Python39\lib\json\decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "C:\Users\miyam\AppData\Local\Programs\Python\Python39\lib\json\decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 3 column 16 (char 199)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\tests\test_uot_controller.py", line 75, in <module>
+    asyncio.run(test_uot_controller())
+  File "C:\Users\miyam\AppData\Local\Programs\Python\Python39\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\miyam\AppData\Local\Programs\Python\Python39\lib\asyncio\base_events.py", line 647, in run_until_complete
+    return future.result()
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\tests\test_uot_controller.py", line 58, in test_uot_controller
+    await simulate_conversation(controller)
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\tests\test_uot_controller.py", line 28, in simulate_conversation
+    await controller.set_context(f"user : {user_input}")
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.\uot_controller\controller.py", line 55, in set_context
+    await self.__deal_user_response(context)
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.\uot_controller\controller.py", line 93, in __deal_user_response
+    is_answered, answer_label, observed_prob_of_yes = await check_is_answered_to_question(self.responses_buffer, self.best_question_candidate, self.real_question_asked)
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.\uot_modules\chat_utils.py", line 212, in check_is_answered_to_question        
+    result = await asyncio.to_thread(
+  File "C:\Users\miyam\AppData\Local\Programs\Python\Python39\lib\asyncio\threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+  File "C:\Users\miyam\AppData\Local\Programs\Python\Python39\lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\runnables\base.py", line 2878, in invoke 
+    input = context.run(step.invoke, input, config)
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\output_parsers\base.py", line 183, in invoke
+    return self._call_with_config(
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\runnables\base.py", line 1785, in _call_with_config
+    context.run(
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\runnables\config.py", line 427, in call_func_with_variable_args
+    return func(input, **kwargs)  # type: ignore[call-arg]
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\output_parsers\base.py", line 184, in <lambda>
+    lambda inner_input: self.parse_result(
+  File "C:\Users\miyam\OneDrive\Desktop\CODE\UoT\UoT_chat\.venv\lib\site-packages\langchain_core\output_parsers\json.py", line 87, in parse_result
+    raise OutputParserException(msg, llm_output=text) from e
+langchain_core.exceptions.OutputParserException: Invalid json output: {
+"thoughts": "The user seems to be unsure about their socks, but the responses are incomplete and unclear. The user is still looking for their socks and is not sure where they are.",
+"is_answered": True,
+"observed_prob_of_yes": 0.45
+}
+
