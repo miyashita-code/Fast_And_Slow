@@ -28,7 +28,7 @@ class UoTController:
         self.state = UoTControllerState()
 
         self.uot = UoT(
-            initial_items=items,
+            initial_items=localized_items,
             n_extend_layers=3,
             n_question_candidates=4,
             n_max_pruning=3,

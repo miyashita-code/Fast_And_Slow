@@ -19,7 +19,7 @@ from firebase_admin import credentials, messaging
 
 
 from modules import db, UserAuth, BackEndProcess, parse_to_langchain_message_str
-
+from neo4j_modules.care_kg_db import CareKgDB
 # Load environment variables
 load_dotenv()
 
@@ -305,10 +305,13 @@ def handle_connect(auth=None):
     # join room
     room = request.sid
     join_room(room)
+    
+    # Initialize the knowledge graph database
+    kg_db = CareKgDB(uri=os.environ.get('NEO4J_URI'), user=os.environ.get('NEO4J_USERNAME'), password=os.environ.get('NEO4J_PASSWORD'), user_uuid=current_user.id)
 
     # Manage backend process instance for the connected user
     if current_user.id not in backend_instances:
-        bp = BackEndProcess(socketio, room, current_user, db)
+        bp = BackEndProcess(socketio, room, current_user, db, kg_db)
         backend_instances[current_user.id] = bp
         threading.Thread(target=bp.run).start()
     else:
@@ -353,22 +356,22 @@ def handle_message(data):
 
     is_valid, current_user, error_message = check_token(token)
     
-
     if not is_valid:
         return jsonify({'message': error_message}), 403
 
-
     print(f"chat message come")
-    user = UserAuth.query.filter_by(api_key="5163a9f2cf11cdc8a2cbc22cd95b4691fb04a9d1f1f41182830e6acb231ab10c").first()
+    if current_user is None:
+        print("current_user is None")
+        return jsonify({'message': 'User not found!'}), 404
 
-    if user.id in backend_instances:
-            print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
-            try:
-                message_content = parse_to_langchain_message_str(data)
-                backend_instances[user.id].set_messages(message_content)
-            except ValueError as e:
-                print(f"Error: {str(e)}")
-                return jsonify({'message': 'Invalid message format!'}), 400
+    if current_user.id in backend_instances:
+        print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
+        try:
+            message_content = parse_to_langchain_message_str(data)
+            backend_instances[current_user.id].set_messages(message_content)
+        except ValueError as e:
+            print(f"Error: {str(e)}")
+            return jsonify({'message': 'Invalid message format!'}), 400
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host="localhost", port=int(os.environ.get('PORT')))

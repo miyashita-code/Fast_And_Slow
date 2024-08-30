@@ -7,8 +7,9 @@ import os
 
 
 class CareKgDB:
-    def __init__(self, uri, user, password):
+    def __init__(self, uri : str, user : str, password : str, user_uuid : str = None):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
+        self.user_uuid = user_uuid
 
     def close(self):
         self.driver.close()
@@ -34,21 +35,18 @@ class CareKgDB:
 
 
 
-'''
-# 使用例
-load_dotenv()
+if __name__ == "__main__":
+    # 使用例
+    load_dotenv()
 
-db = CareKgDB(os.getenv("NEO4J_DEV_SAMPLE_URL"), "neo4j", os.getenv("NEO4J_PASSWORD"))
-instances = db.get_lending_ear_options()
-#db.get_all()
-db.close()
+    db = CareKgDB(os.getenv("NEO4J_URI"), os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
+    instances = db.get_uot_nodes()
+    #db.get_all()
+    db.close()
 
-# 取得したインスタンスを表示
+    # 取得したインスタンスを表示
 
-for instance in instances:
-    print(f"Name: {instance['name']}, Description: {instance['description']}")
+    for instance in instances:
+        print(f"Name: {instance['name']}, Description: {instance['description']}")
 
-print(f"{len(instances)} instances found")
-'''
-
-
+    print(f"{len(instances)} instances found")

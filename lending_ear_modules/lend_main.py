@@ -28,11 +28,11 @@ class LendingEarController:
         asyncio.set_event_loop(loop)
         loop.run_until_complete(controller.run(is_debug=True))
 
-    def set_message(self, message):
+    async def set_message(self, message):
         if "user" in message:
-            self.uot_controller.set_context(f"user : {message}")
+            await self.uot_controller.set_context(f"user : {message}")
         elif "assistant" in message:
-            self.uot_controller.set_context(f"assistant : {message}")
+            await self.uot_controller.set_context(f"assistant : {message}")
 
     def callback(self):
         best_prob_item = self.uot_controller.uot.root.get_best_prob_item()

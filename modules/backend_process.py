@@ -1,4 +1,5 @@
 import datetime
+import asyncio
 import uuid
 
 from .models import Message
@@ -7,13 +8,12 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Base
 
 from flask_socketio import disconnect
 
-
 class BackEndProcess:
     """
     Class representing the backend process for handling socket connections.
 
     """
-    def __init__(self, socketio, room, client_data, db):
+    def __init__(self, socketio, room, client_data, db, kg_db):
         """
         Initialize the backend process.
 
@@ -21,6 +21,8 @@ class BackEndProcess:
         socketio: SocketIO instance.
         room (str): Room ID.
         client_data: Client-related data.
+        db: Database instance.
+        kg_db: Knowledge graph database instance.
         """
         self.room = room
         self.messages = []
@@ -30,7 +32,8 @@ class BackEndProcess:
         self.DIALOUGE_ID_TIMEOUT = 300 #(sec)
         self.dialogue_id = self.get_or_create_dialogue_id()
         self.db = db
-        self.lending_ear_controller = LendingEarController(db)
+        self.kg_db = kg_db
+        self.lending_ear_controller = LendingEarController(self.kg_db)
 
     def run(self):
         """
@@ -88,7 +91,7 @@ class BackEndProcess:
         self.db.session.add(new_message)
         self.db.session.commit()
         self.messages.append(message_content)
-        self.lending_ear_controller.set_message(message_content)
+        asyncio.run(self.lending_ear_controller.set_message(message_content))
 
     def get_recent_messages_desc(self, user_id, limit=50) -> list[str]:
         messages = Message.query.filter_by(user_id=user_id).order_by(Message.timestamp.desc()).limit(limit).all()
