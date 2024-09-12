@@ -290,9 +290,12 @@ def handle_connect(auth=None):
     """
     print(f"handshake tryal : {auth}")
     token = request.headers.get('token')
+    way = request.headers.get('way')
 
     if not token:
         token = request.args.get('token')
+    if not way:
+        way = request.args.get('way')
 
     is_valid, current_user, error_message = check_token(token)
 
@@ -313,7 +316,10 @@ def handle_connect(auth=None):
     if current_user.id not in backend_instances:
         bp = BackEndProcess(socketio, room, current_user, db, kg_db)
         backend_instances[current_user.id] = bp
-        threading.Thread(target=bp.run).start()
+        if way == "instruction":
+            threading.Thread(target=bp.instruction_run).start()
+        else:
+            threading.Thread(target=bp.lending_ear_run).start()
     else:
         backend_instances[current_user.id].set_room(room)
 

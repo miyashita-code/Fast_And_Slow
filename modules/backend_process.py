@@ -4,6 +4,7 @@ import uuid
 
 from .models import Message
 from lending_ear_modules import LendingEarController
+from demo_module.st import LinearConversationController
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
 
 from flask_socketio import disconnect
@@ -34,18 +35,46 @@ class BackEndProcess:
         self.db = db
         self.kg_db = kg_db
         self.lending_ear_controller = LendingEarController(self.kg_db)
+        self.conversation_controller = LinearConversationController()
 
-    def run(self):
+    def lending_ear_run(self):
         """
         Run the backend process. Emit instructions based on message length.
         """
         print(f"run : {self.room}")
         print(f"say hello : {self.room}")
         self.socketio.emit('announce', {'announce': 'Hello, LendingEar Started!'}, room=self.room)
-        self.send_socket("instruction", {"instruction" : "まずは、傾聴を始めます。初めに「状況を整理するためにいくつか質問をすること」を説明してください。", "isLendingEar" : True})
+        self.send_socket("instruction", {"instruction" : "まずは、傾聴を始めます。初めに「状況を整理するためにいくつか質問をすること」を説明してください。この確認は省略することなく、何にもましてもっとも初めに行うことです。絶対に従ってください。\
+            絶対に絶対に絶対に聞いてください。", "isLendingEar" : True})
         self.lending_ear_controller.main(self.send_socket, self.get_messages)
+    
+    def instruction_run(self):
+        """
+        Run the backend process. Emit instructions based on message length.
+        """
+        print(f"run : {self.room}")
+        print(f"say hello : {self.room}")
+        self.socketio.emit('announce', {'announce': 'Hello, LendingEar Started!'}, room=self.room)
+        self.send_socket("instruction", {"instruction" : "  インストラクションを始めます。簡単なあいさつの後、デイサービスに行く前の準備を共にすることを説明してください", "isLendingEar" : False})
+        self.conversation_controller.main(self.send_socket_instruction, self.get_messages)
 
     def send_socket(self, event, data):
+        """
+        Send data to the client using a specified event.
+
+        Args:
+            event (str): Event name to emit.
+            data (dict): Data to send as key-value pairs.
+        """
+        print("*" * 20)
+        print("\n\n")
+        print(f"Sending event: {event}")
+        print(f"Data: {data}")
+        print("*" * 20)
+        print("\n\n")
+        self.socketio.emit(event, data, room=self.room)
+    
+    def send_socket_instruction(self, event, data):
         """
         Send data to the client using a specified event.
 
@@ -86,12 +115,13 @@ class BackEndProcess:
         else:
             return str(uuid.uuid4())
 
-    def set_messages(self, message_content : str):
+    def set_messages(self, message_content: str):
         new_message = Message(user_id=self.client_data.id, dialogue_id=self.dialogue_id, content=message_content)
         self.db.session.add(new_message)
         self.db.session.commit()
         self.messages.append(message_content)
         asyncio.run(self.lending_ear_controller.set_message(message_content))
+        asyncio.run(self.conversation_controller.set_message(message_content))
 
     def get_recent_messages_desc(self, user_id, limit=50) -> list[str]:
         messages = Message.query.filter_by(user_id=user_id).order_by(Message.timestamp.desc()).limit(limit).all()
