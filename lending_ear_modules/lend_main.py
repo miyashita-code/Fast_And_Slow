@@ -41,7 +41,8 @@ class LendingEarController:
         self.stop()
 
     def direct_prompting_func(self, prompt):
-        self.send_socket("instruction", {"instruction": prompt, "isLendingEar": True})
+        # イベント名を "telluser" に変更し、データを調整
+        self.send_socket("telluser", {"titles": "タイトル", "detail": prompt})
 
     def stop(self):
         if self.thread and self.thread.is_alive():

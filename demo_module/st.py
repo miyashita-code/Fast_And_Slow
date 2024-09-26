@@ -96,6 +96,7 @@ class State(NamedTuple):
     name: str
     time: int
     next_state: str = ""
+    title: str = ""
 
 class LinearConversationController:
     def __init__(self, llm_client, threshold: float = 0.7):
@@ -112,6 +113,7 @@ class LinearConversationController:
         self.timer = None
         self.timeout_count = 0
         self.thread = None
+        self.state_changed = False  # 状態変化を追跡するフラグを追加
 
     def set_callbacks(self, callback: Callable, direct_prompting_func: Callable):
         self.callback = callback
@@ -119,12 +121,16 @@ class LinearConversationController:
 
     def get_init_state(self) -> List[State]:
         return [
-            State(detail="デイサービスの準備について, デーサービスの迎えが9:00に来るので、その前に外出の準備を済ませましょう。", name="初めの説明", time=0, next_state="朝食"),
-            State(detail="まずは、朝食を済ませましょう。", name="朝食", time=1, next_state="洗顔と髭剃り"),
-            State(detail="洗顔と髭剃りをしましょう。歯磨きもお忘れなく。ひげをそるときは、剃刀ではなく、赤の電動シェイバーがおすすめです。（剃刀負けしなくて便利ですね。）", name="洗顔と髭剃り", time=1, next_state="着替え"),
-            State(detail="次に、服装について考えましょう。今日は暑くもなく、少し涼しいので薄手の長袖か半袖が良いかもしれませんね。", name="着替え", time=1, next_state="お迎え待ち"),
-            State(detail="8時50分になったら、ちょうどよい時間なので、家の前でデイサービスのお迎えを待ちましょう。", name="お迎え待ち", time=0, next_state="終了"),
-            State(detail="お気を付けて、良い一日を！", name="終了", time=0, next_state="終了"),
+            State(detail="iphoneのmapの使い方を説明します。", name="初めの説明", time=0, next_state="siriを呼びだす", title="iphoneのmapの使い方"),
+            State(detail="まずは、mapのアプリを開きたいので、Homeボタンを長押しして、siriを呼び出してください。或いはホーム画面からマップを開いても構いません", name="siriを呼び出す", time=1, next_state="マップを開く", title="siriに「マップを開く」と話しかける"),
+            State(detail="次に、siriに「マップ」と話しかけてください。この時住所が簡単らなば、「どこどどへ案内して」でもよいですが、口で言うのが難しい住所の場合は、「マップ」と言ってください。", name="マップを開く", time=1, next_state="マップを開く", title="siriに「マップ」と話しかける"),
+            State(detail="マップを開いたら、目的地を検索します。画面中央の左にある虫眼鏡のアイコンと「マップで検索」をタップか長押ししてください。キーボードが出てきます。", name="目的地を検索", time=0, next_state="目的地を入力", title="「🔍マップで検索」をタップ"),
+            State(detail="キーボードで目的地の住所か名前を入力してください。入力後、入力欄の下に表示された候補の中から目的のものを見つけてタップしてください。", name="目的地を入力", time=1, next_state="経路を表示", title="目的地をキーボードでにゅうりょく"),
+            State(detail="画面下部に青色のボタンに白の電車が書いてあるボタンがあります。このボタンをタップしてください。そうすれば経路が表示されます。", name="経路を表示", time=0, next_state="経路から徒歩を選択", title="画面下部に青色のボタン(電車)をタップして経路表示"),
+            State(detail="そのままナビゲーションしてもらうにはもう一ステップ必要です。経路の文字のすぐ下に5つのボタンがあります。左から車、歩く人、電車、自転車、手を挙げる人のマークがありますね？左から２番目の白色の歩く人のボタンをタップすると、徒歩での経路が表示されます。", name="経路から徒歩を選択", time=0, next_state="終了", title="左から二番目の歩く人のマークのボタンをタップして徒歩を選択！"),
+            State(detail="あとは画面下部右下の出発をタップして、出発です！お気をつけて！", name="終了", time=0, next_state="終了", title="お気をつけて！"),
+            #State(detail="違う場所が表示されてしまった場合も大丈夫です。画面右側の中央すぐ下にバツボタンがあります。それをタップしてください。", name="やり直し", time=0, next_state="目的を検索（再）"),
+            #State(detail="再度、目的地を検索します。画面中央か上部の左にある虫眼鏡のアイコンと「マップで検索」をタップか長押ししてください。キーボードが出てきます。", name="目的を検索（再）", time=1, next_state="目的地を入力"),
         ]
 
     def set_mode(self, mode: bool):
@@ -149,7 +155,10 @@ class LinearConversationController:
             if result:
                 self.is_explained = True
             else:
-                await self.direct_prompting_func(f"次の内容について可能な限り早い段階で伝えてください。ただし対話の文脈を壊さないように少し言い方を変えても構いません。内容: {self.states[self.current_state_index].detail}")
+                await self.direct_prompting_func(
+                    f"次の内容について可能な限り早い段階で伝えてください。ただし対話の文脈を壊さないように少し言い方を変えても構いません。内容: {self.states[self.current_state_index].detail}",
+                    self.states[self.current_state_index].title  # タイトルを追加
+                )
         elif "user" in response and self.is_explained:
             self.responses_buffer.append(response)
             print(f"global_responses_buffer: {self.global_responses_buffer}, responses_buffer: {self.responses_buffer}, detail: {self.states[self.current_state_index].detail}, next_state: {self.states[self.current_state_index].next_state}")
@@ -160,7 +169,10 @@ class LinearConversationController:
                 await self.proceed_to_next_state()
                 self.is_explained = False
             else:
-                await self.direct_prompting_func(f"次の内容について可能な限り早い段階で伝えてください。すでに伝えている場合は、ゆっくりと傾聴し積極的に反応を引き出したり追加で掘り下げて説明してください。内容: {self.states[self.current_state_index].detail}")
+                await self.direct_prompting_func(
+                    f"次の内容について可能な限り早い段階で伝えてください。すでに伝えている場合は、ゆっくりと傾聴し積極的に反応を引き出したり追加で掘り下げて説明してください。内容: {self.states[self.current_state_index].detail}",
+                    self.states[self.current_state_index].title  # タイトルを追加
+                )
 
         if self.timer:
             self.timer.cancel()
@@ -175,6 +187,8 @@ class LinearConversationController:
 
     async def proceed_to_next_state(self):
         self.current_state_index += 1
+        self.state_changed = True  # 状態が変化したことを記録
+        print(f"current_state_index: {self.current_state_index}, states: {self.states}")
         if self.current_state_index >= len(self.states):
             await self.end_conversation()
         else:
@@ -183,7 +197,11 @@ class LinearConversationController:
     async def send_next_message(self):
         if self.current_state_index < len(self.states):
             current_state = self.states[self.current_state_index]
-            await self.direct_prompting_func(f"Planing Systemから要請です。次の内容について可能な限り早い段階で伝えてください。なお、内容が不自然な場合は文脈が壊れないように少し言い方を変えても構いません。** 内容: {current_state.detail}**")
+            # direct_prompting_func に title を追加で渡すように修正
+            await self.direct_prompting_func(
+                f"Planing Systemから要請です。次の内容について可能な限り早い段階で伝えてください。なお、内容が不自然な場合は文脈が壊れないように少し言い方を変えても構いません。** 内容: {current_state.detail}**",
+                current_state.title  # タイトルを追加
+            )
 
     async def set_timer(self):
         current_state = self.states[self.current_state_index]
@@ -196,10 +214,13 @@ class LinearConversationController:
         if self.timeout_count >= 2:
             await self.end_conversation()
         else:
-            await self.direct_prompting_func(f"応答がないですが、準備中かと思われるので、進行について伺ってください。 : {self.current_state.detail}")
+            await self.direct_prompting_func(
+                f"応答がないですが、準備中かと思われるので、進行について伺ってください。 : {self.current_state.detail}",
+                self.states[self.current_state_index].title  # タイトルを追加
+            )
 
     async def end_conversation(self):
-        await self.direct_prompting_func("会話を終了します。ありがとうございました。")
+        await self.direct_prompting_func("会話を終了します。ありがとうございました。", "終了")
         self.is_on = False
         if self.callback:
             await self.callback()
@@ -258,8 +279,14 @@ class LinearConversationController:
         self.send_socket("instruction", {"instruction": instruction, "isLendingEar": False})
         self.stop()
 
-    def direct_prompting_func(self, prompt):
-        self.send_socket("instruction", {"instruction": prompt, "isLendingEar": True})
+    def direct_prompting_func(self, prompt, title=None):
+        if self.state_changed:
+            # 状態変化時は 'telluser' イベントを使用
+            self.send_socket("telluser", {"titles": title, "detail": prompt})
+            self.state_changed = False  # 状態変化フラグをリセット
+        else:
+            # それ以外は 'instruction' イベントを使用
+            self.send_socket("instruction", {"instruction": prompt, "isLendingEar": False})
 
     def stop(self):
         if self.thread and self.thread.is_alive():

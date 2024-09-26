@@ -6,6 +6,7 @@ from .models import Message
 from lending_ear_modules import LendingEarController
 from demo_module.st import LinearConversationController
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
+from langchain_fireworks import ChatFireworks
 
 from flask_socketio import disconnect
 
@@ -35,7 +36,26 @@ class BackEndProcess:
         self.db = db
         self.kg_db = kg_db
         self.lending_ear_controller = LendingEarController(self.kg_db)
-        self.conversation_controller = LinearConversationController()
+        
+        # llm_clientを初期化
+        self.llm_client = ChatFireworks(model="accounts/fireworks/models/llama-v3-70b-instruct", max_tokens=4096)
+        
+        # LinearConversationControllerにllm_clientを渡す
+        self.conversation_controller = LinearConversationController(self.llm_client)
+        
+        # コールバック関数を設定 (修正)
+        self.conversation_controller.set_callbacks(self.callback_function, self.prompt_wrapper)
+    
+    # 新しいラッパー関数を追加
+    async def prompt_wrapper(self, prompt: str, title: str):
+        # イベント名を "telluser" に変更し、データを調整
+        self.send_socket_instruction("telluser", {"titles": title, "detail": prompt})
+    
+    def callback_function(self):
+        # コールバックロジックを実装
+        print("コールバックが呼び出されました。")
+        # 必要に応じて他の処理を追加
+        pass
 
     def lending_ear_run(self):
         """
@@ -55,8 +75,8 @@ class BackEndProcess:
         print(f"run : {self.room}")
         print(f"say hello : {self.room}")
         self.socketio.emit('announce', {'announce': 'Hello, LendingEar Started!'}, room=self.room)
-        self.send_socket("instruction", {"instruction" : "  インストラクションを始めます。簡単なあいさつの後、デイサービスに行く前の準備を共にすることを説明してください", "isLendingEar" : False})
-        self.conversation_controller.main(self.send_socket_instruction, self.get_messages)
+        self.send_socket("instruction", {"instruction" : "  インストラクションを始めます。簡単なあいさつの後、iphoneのmapの使い方を説明することを共有してください。これから説明を始めることだけを伝え必要最小限にすること", "isLendingEar" : False})
+        self.conversation_controller.main(self.prompt_wrapper, self.get_messages)
 
     def send_socket(self, event, data):
         """

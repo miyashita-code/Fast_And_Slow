@@ -308,6 +308,9 @@ def handle_connect(auth=None):
     # join room
     room = request.sid
     join_room(room)
+
+    # demo 
+    way = "instruction"
     
     # Initialize the knowledge graph database
     kg_db = CareKgDB(uri=os.environ.get('NEO4J_URI'), user=os.environ.get('NEO4J_USERNAME'), password=os.environ.get('NEO4J_PASSWORD'), user_uuid=current_user.id)

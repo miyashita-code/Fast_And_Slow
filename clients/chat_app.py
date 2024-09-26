@@ -9,6 +9,7 @@ sys.path.append(project_root)
 import openai
 import streamlit as st
 from dotenv import load_dotenv
+from langchain_experimental.autonomous_agents.autogpt.output_parser import AutoGPTOutputParser
 
 from chat_modules import FastAgents, SocketClient
 
@@ -130,8 +131,20 @@ def main():
 
 
 
-if __name__ == "__main__":
-    init()
+    # 追加: telluser イベントを処理する関数
+    @socketio.on('telluser')
+    def handle_telluser(data):
+        """
+        'telluser' イベントを受信して要約を表示します。
+        """
+        instruction_title = data.get("titles", "")
+        detail = data.get("detail", "")
+        summary = f"**{instruction_title}**: {detail}"
+        st.session_state.messages.append({"role": "assistant", "content": summary})
+        st.chat_message("assistant").markdown(summary)
+
+    if __name__ == '__main__':
+        socketio.run(app, debug=True, host="localhost", port=int(os.environ.get('PORT')))
 
 
     try:

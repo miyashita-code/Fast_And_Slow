@@ -4,6 +4,7 @@ import asyncio
 import threading
 import streamlit as st
 from dotenv import load_dotenv
+from flask_socketio import SocketIO, emit
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
@@ -149,6 +150,19 @@ def main():
 
             st.session_state.is_p_y_done = False
             st.rerun()
+
+    # 追加: telluser メッセージを受信して表示する
+    @socketio.on('telluser')
+    def handle_telluser(data):
+        """
+        'telluser' イベントを受信して要約を表示します。
+        """
+        instruction_title = data.get("titles", "")
+        detail = data.get("detail", "")
+        summary = f"**{instruction_title}**: {detail}"
+        st.session_state.messages.append({"role": "assistant", "content": summary})
+        with st.chat_message("assistant"):
+            st.markdown(summary)
 
 if __name__ == "__main__":
     init()

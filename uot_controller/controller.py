@@ -7,7 +7,7 @@ from uot_modules import check_is_question_explained, check_is_answered_to_questi
 from neo4j_modules.care_kg_db import CareKgDB
 
 class UoTController:
-    def __init__(self, kg_db : CareKgDB, threshold : float = 0.7):
+    def __init__(self, kg_db : CareKgDB, threshold : float = 0.7, is_debug : bool = False):
         self.kg = kg_db
         self.contexts = []
         self.is_on = False
@@ -15,6 +15,7 @@ class UoTController:
         self.state = None
         self.is_asked_question = False
         self.responses_buffer = []
+        self.is_debug = is_debug
 
     def set_callbacks(self, callback : Callable, direct_prompting_func : Callable):
         self.callback = callback
@@ -33,7 +34,7 @@ class UoTController:
             n_question_candidates=4,
             n_max_pruning=3,
             lambda_=20,
-            is_debug=False,
+            is_debug=self.is_debug,
             unknown_reward_prob_ratio=0.3,
             get_grobal_context=self.get_grobal_context_as_str
         )
