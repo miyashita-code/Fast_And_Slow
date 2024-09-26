@@ -309,7 +309,7 @@ def handle_connect(auth=None):
     room = request.sid
     join_room(room)
 
-    # demo 
+    # demo hard
     way = "instruction"
     
     # Initialize the knowledge graph database
