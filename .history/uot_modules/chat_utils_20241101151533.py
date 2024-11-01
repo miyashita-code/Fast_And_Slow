@@ -7,7 +7,6 @@ from typing import List, Dict, Any, Tuple
 from collections import defaultdict
 import sys
 import asyncio
-import random
 
 from uot_modules.llm_utils import get_response_util
 from uot_modules.item import Item
@@ -57,8 +56,7 @@ async def generate_questions_and_estimate_probability(items : list[Item], ques_n
        "n": ques_num,
        "one_divided_n": 1/ques_num if ques_num > 0 else 0,
        "additional_context": additional_context_str,
-       "top_5_items": top_5_items,
-       "is_abstract": random.random() < 0.5
+       "top_5_items": top_5_items
    })
 
 

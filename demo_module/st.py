@@ -61,7 +61,7 @@ Follow these output format instructions (100%, only json output):
 {format_instructions}
 
 caution:
-even if there are no user responses to check, json以外で答えるな！一文字も追加するな！
+even if there are no user responses to check, json以外で答えるな！一文字も追加するな！, 「次は？」とか言われたらすぐに次に行け！次の内容の話を始めてもすぐに次に行け！
 """
 
 # 出力パーサー
@@ -114,24 +114,73 @@ class LinearConversationController:
         self.timeout_count = 0
         self.thread = None
         self.state_changed = False  # 状態変化を追跡するフラグを追加
+        self.loop = None  # イベントループを初期化
 
     def set_callbacks(self, callback: Callable, direct_prompting_func: Callable):
         self.callback = callback
         self.direct_prompting_func = direct_prompting_func
 
+    """
     def get_init_state(self) -> List[State]:
         return [
-            State(detail="iphoneのmapの使い方を説明します。", name="初めの説明", time=0, next_state="siriを呼びだす", title="iphoneのmapの使い方"),
-            State(detail="まずは、mapのアプリを開きたいので、Homeボタンを長押しして、siriを呼び出してください。或いはホーム画面からマップを開いても構いません", name="siriを呼び出す", time=1, next_state="マップを開く", title="siriに「マップを開く」と話しかける"),
-            State(detail="次に、siriに「マップ」と話しかけてください。この時住所が簡単らなば、「どこどどへ案内して」でもよいですが、口で言うのが難しい住所の場合は、「マップ」と言ってください。", name="マップを開く", time=1, next_state="マップを開く", title="siriに「マップ」と話しかける"),
-            State(detail="マップを開いたら、目的地を検索します。画面中央の左にある虫眼鏡のアイコンと「マップで検索」をタップか長押ししてください。キーボードが出てきます。", name="目的地を検索", time=0, next_state="目的地を入力", title="「🔍マップで検索」をタップ"),
-            State(detail="キーボードで目的地の住所か名前を入力してください。入力後、入力欄の下に表示された候補の中から目的のものを見つけてタップしてください。", name="目的地を入力", time=1, next_state="経路を表示", title="目的地をキーボードでにゅうりょく"),
-            State(detail="画面下部に青色のボタンに白の電車が書いてあるボタンがあります。このボタンをタップしてください。そうすれば経路が表示されます。", name="経路を表示", time=0, next_state="経路から徒歩を選択", title="画面下部に青色のボタン(電車)をタップして経路表示"),
-            State(detail="そのままナビゲーションしてもらうにはもう一ステップ必要です。経路の文字のすぐ下に5つのボタンがあります。左から車、歩く人、電車、自転車、手を挙げる人のマークがありますね？左から２番目の白色の歩く人のボタンをタップすると、徒歩での経路が表示されます。", name="経路から徒歩を選択", time=0, next_state="終了", title="左から二番目の歩く人のマークのボタンをタップして徒歩を選択！"),
-            State(detail="あとは画面下部右下の出発をタップして、出発です！お気をつけて！", name="終了", time=0, next_state="終了", title="お気をつけて！"),
-            #State(detail="違う場所が表示されてしまった場合も大丈夫です。画面右側の中央すぐ下にバツボタンがあります。それをタップしてください。", name="やり直し", time=0, next_state="目的を検索（再）"),
-            #State(detail="再度、目的地を検索します。画面中央か上部の左にある虫眼鏡のアイコンと「マップで検索」をタップか長押ししてください。キーボードが出てきます。", name="目的を検索（再）", time=1, next_state="目的地を入力"),
+            State(detail="iphoneのmapの使い方を説明します。", name="iphoneのmapの使い方説明", time=0, next_state="iphoneのホーム画面を開く", title="iphoneのmapの使い方説明"),
+            State(detail="まずはiphoneを手に取り, 電源を入れてホーム画面を開いてください。", name="iphoneのホーム画面を開く", time=0, next_state="マップ アプリを開く", title="iphoneのホーム画面を開く"),
+            State(detail="まずは、mapのアプリの中に入りたいので、画面の右下の方にある「マップ アプリを開いてください」", name="マップ アプリを開く", time=1, next_state="マップで検索をタップ", title="画面右下のマップ アプリを開く"),
+            State(detail="マップを開いたら、目的地を検索します。画面の下の方の虫眼鏡のアイコンの横に「マップで検索」と書いてあるところをタップか長押ししてください。キーボードが出てきます。", name="マップで検索をタップ", time=0, next_state="目的地を入力", title="「🔍マップで検索」をタップ"),
+            State(detail="キーボードが出てきたら、キーボードで目的地の住所か名前を入力してください。入力後、入力欄の下に表示された候補の中から目的のものを見つけてタップしてください。", name="目的地を入力", time=1, next_state="経路ボタンをタップ", title="目的地をキーボードで入力"),
+            State(detail="画面下部に青色のボタンで「経路」と書いてあるボタンがあります。このボタンをタップしてください。そうすれば出発地を選択の画面が出てきます。もしない場合は下に隠れているかもしれないです。", name="経路ボタンをタップ", time=0, next_state="現在地を選択", title="画面下部の青色の経路ボタンをタップ"),
+            State(detail="出発地点の入力を求められたら、現在地を選択してください。そのあと、右上の青色の経路を選択します。", name="現在地を選択", time=0, next_state="出発", title="出発地に現在地を選択"),
+            State(detail="あとは画面下部右下の出発をタップして、出発です！お気をつけて！", name="出発", time=0, next_state="終了", title="出発をタップしてお気をつけて！"),
         ]
+    """
+
+    def get_init_state(self) -> List[State]:
+
+        return [
+            State(
+                detail="散歩に行きませんか？",
+                name="着替えをする",
+                time=0,
+                next_state="上着を着る",
+                title="散歩に行きませんか？ 着替えをする"
+            ),
+            State(
+                detail="外に行く前に服装だけ整えたいですね。今日は外の気温が低いので、温かい上着を着るのがおすすめですよ。(5~10度前後みたいですよ)",
+                name="上着を着る",
+                time=0,
+                next_state="トイレに行く",
+                title="上着を着る"
+            ),
+            State(
+                detail="靴下と上着の準備が済んだら、念のためトイレを済ませておくと安心ですね。",
+                name="トイレに行く",
+                time=0,
+                next_state="靴箱に向かう",
+                title="トイレに行く"
+            ),
+            State(
+                detail="それでは、1階の靴箱に向かいましょう。",
+                name="靴箱に向かう",
+                time=0,
+                next_state="不安を取り除く",
+                title="靴箱に向かう"
+            ),
+            State(
+                detail="スリッパのままでいいのか、靴はどこにあるのか不安になることがあるかもしれませんが、下に靴箱があるので大丈夫ですよ。",
+                name="不安を取り除く",
+                time=1,
+                next_state="終了",
+                title="不安を取り除く"
+            ),
+            State(
+                detail="これで準備が完了しました。お気をつけていってらっしゃい！",
+                name="終了",
+                time=0,
+                next_state="終了",
+                title="お気をつけて！"
+            ),
+        ]   
+
 
     def set_mode(self, mode: bool):
         self.is_on = mode
@@ -148,6 +197,9 @@ class LinearConversationController:
         if self.current_state_index >= len(self.states):
             return
 
+        if not self.is_on:
+            return
+
         if "assistant" in response and not self.is_explained:
             print(f"global_responses_buffer: {self.global_responses_buffer}, responses_buffer: {self.responses_buffer}, detail: {self.states[self.current_state_index].detail}")
             thought, result = await self.check_is_explained(self.global_responses_buffer, self.responses_buffer, self.states[self.current_state_index].detail)
@@ -156,7 +208,7 @@ class LinearConversationController:
                 self.is_explained = True
             else:
                 await self.direct_prompting_func(
-                    f"次の内容について可能な限り早い段階で伝えてください。ただし対話の文脈を壊さないように少し言い方を変えても構いません。内容: {self.states[self.current_state_index].detail}",
+                    f"次の内容について可能な限り早い段階で伝えてください。ただし対話の文脈を壊さないように少し言い方を変えても構いません。内容: {self.states[self.current_state_index].detail}, また場合によっては次のステップに進んでもいいです。（次のステップの内容{self.states[min(self.current_state_index+1, len(self.states)-1)].detail}",
                     self.states[self.current_state_index].title  # タイトルを追加
                 )
         elif "user" in response and self.is_explained:
@@ -170,7 +222,7 @@ class LinearConversationController:
                 self.is_explained = False
             else:
                 await self.direct_prompting_func(
-                    f"次の内容について可能な限り早い段階で伝えてください。すでに伝えている場合は、ゆっくりと傾聴し積極的に反応を引き出したり追加で掘り下げて説明してください。内容: {self.states[self.current_state_index].detail}",
+                    f"次の内容について可能な限り早い段階で伝えてください。すでに伝えている場合は、ゆっくりと傾聴し積極的に反応を引き出したり追加で掘り下げて説明してください。内容: {self.states[self.current_state_index].detail}, また場合によっては次のステップに進んでもいいです。（次のステップの内容{self.states[min(self.current_state_index+1, len(self.states)-1)].detail}",
                     self.states[self.current_state_index].title  # タイトルを追加
                 )
 
@@ -182,12 +234,16 @@ class LinearConversationController:
             if current_state.time > 0:
                 self.timeout_count = 0
                 await self.set_timer()
-            else:
-                await self.proceed_to_next_state()
 
     async def proceed_to_next_state(self):
         self.current_state_index += 1
         self.state_changed = True  # 状態が変化したことを記録
+
+        # フラグやバッファのリセット
+        self.is_explained = False
+        self.responses_buffer.clear()
+        self.global_responses_buffer.clear()
+
         print(f"current_state_index: {self.current_state_index}, states: {self.states}")
         if self.current_state_index >= len(self.states):
             await self.end_conversation()
@@ -199,7 +255,7 @@ class LinearConversationController:
             current_state = self.states[self.current_state_index]
             # direct_prompting_func に title を追加で渡すように修正
             await self.direct_prompting_func(
-                f"Planing Systemから要請です。次の内容について可能な限り早い段階で伝えてください。なお、内容が不自然な場合は文脈が壊れないように少し言い方を変えても構いません。** 内容: {current_state.detail}**",
+                f"Planing Systemから要請です。次の内容について可能な限り早い段階で伝えてください。なお、内容が不自然な場合は文脈が壊れないように少し言い方を変えても構いません。** 内容: {current_state.detail}**, また場合によっては次のステップに進んでもいいです。（次のステップの内容{self.states[min(self.current_state_index+1, len(self.states)-1)].detail}",
                 current_state.title  # タイトルを追加
             )
 
@@ -237,12 +293,16 @@ class LinearConversationController:
 
     # check_is_explained の実装
     async def check_is_explained(self, global_responses: List[str], responses: List[str], detail: str) -> tuple[str, bool]:
-        response = check_is_explained_chain.invoke({
-            "global_responses": global_responses,
-            "responses": responses,
-            "detail": detail
-        })
-        return response["thought"], response["is_explained"]
+        try:
+            response = check_is_explained_chain.invoke({
+                "global_responses": global_responses,
+                "responses": responses,
+                "detail": detail
+            })
+            return response["thought"], response["is_explained"]
+        except Exception as e:
+            print(f"Error in check_is_explained: {e}")
+            return "Error in check_is_explained", False
 
     # check_is_finished の実装
     async def check_is_finished(self, global_responses: List[str], responses: List[str], detail: str, next_state_name: str) -> tuple[str, bool]:
@@ -265,7 +325,19 @@ class LinearConversationController:
 
     def run_controller(self, loop, controller):
         asyncio.set_event_loop(loop)
+        self.loop = loop  # イベントループを保存
         loop.run_until_complete(controller.run(is_debug=True))
+
+    def schedule_proceed_to_next_state(self):
+        """
+        イベントループ内で proceed_to_next_state をスケジュールします。
+        """
+        if self.loop:
+            asyncio.run_coroutine_threadsafe(self.proceed_to_next_state(), self.loop)
+        else:
+            # ループがまだ初期化されていない場合は、新たに作成
+            self.loop = asyncio.new_event_loop()
+            asyncio.run_coroutine_threadsafe(self.proceed_to_next_state(), self.loop)
 
     async def set_message(self, message):
         if "user" in message:

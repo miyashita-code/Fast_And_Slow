@@ -110,8 +110,8 @@ groq_llama_v3p2_90b = ChatOpenAI(model="llama-3.2-90b-text-preview", max_tokens=
         response_format={"type": "json_object"}
     )
 
-smart_model = gpt_4o_mini_model
-fast_model = gpt_4o_mini_model
+smart_model = gpt_4o_model
+fast_model = fireworks_llama_v3p2_11b
 fast_quasi_model = groq_llama_v3p2_90b
 quasi_model = claude_3_5_sonnet_model
 

@@ -256,10 +256,9 @@ def get_token():
         }
         token = jwt.encode(payload, os.environ.get('SECRET_KEY_JWT'), algorithm='HS256')
 
-        if user.id in backend_instances:
+        if user.id not in backend_instances:
             bp = backend_instances[user.id]
             bp.stop()
-
         return jsonify({'token': token})
     else:
         return jsonify({'message': 'Invalid API Key'}), 401

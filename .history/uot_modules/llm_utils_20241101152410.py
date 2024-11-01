@@ -3,10 +3,9 @@ from langchain_anthropic import ChatAnthropic
 from langchain_fireworks import ChatFireworks
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 from typing import List, Callable
 from enum import Enum
-import os
 from langchain_core.runnables.base import RunnableSequence
 
 from .tasks.prompts.dementia_support import *
@@ -15,56 +14,35 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class _EvaluationProbabilityOfYes(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
-    
     name: str = Field(..., description="The name of the item. You cannot change the name. (in Japanese)")
     description: str = Field(..., description="The description of the item. You cannot change the description. (in Japanese)")
-    thought: str = Field(..., description=evaluate_probabilities_of_chunk_discription)
-    y_prob: float = Field(..., description="The probability of the item being yes. y_prob must be between 0 and 1. Around 0.5 means not related, both, or difficult. Please set the number as detailed as possible. (in English)")
+    thought: str = Field(..., description=evaluate_probabilities_of_chunk_discription) # CoT
+    y_prob : float = Field(..., description="The probability of the item being yes. y_prob must be between 0 and 1. Around 0.5 means not related, both, or difficult. Please set the number as detailed as possible. (in English)")
 
 class _EvaluationProbabilityOfYesResult(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
-    
     question: str = Field(..., description="The question posed for evaluation of probability of yes option of situation with the item.")
     items: List[_EvaluationProbabilityOfYes] = Field(..., description="The list of evaluated items.")
 
 class _GenerateQuestionsItem(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
-    
-    number: int = Field(..., description="The number of questions generated. This is from 1 to size n.")
-    thoughts: str = Field(..., description=generate_questions_thought_discription)
+    number : int = Field(..., description="The number of questions generated. This is from 1 to size n.")
+    thoughts: str = Field(..., description=generate_questions_thought_discription) # CoT
     question: str = Field(..., description=generate_questions_discription)
 
 class _CheckOpenAnswer(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
-    
-    thoughts: str = Field(..., description=check_open_answer_thought_discription)
+    thoughts: str = Field(..., description=check_open_answer_thought_discription) # CoT
     is_answer_done: bool = Field(..., description="Whether the answer is done or not. If the answer is done, set True. If the answer is not done, set False.")
     observed_prob_of_yes: float = Field(..., description="The probability of the answer being correct. This must be between 0 and 1. Around 0.5 means not related, both, or difficult. Please set the number as detailed as possible. (in English)")
 
 class _GenerateQuestionsResult(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
-    
     items: List[_GenerateQuestionsItem] = Field(..., description="The list of generated items which include a question with index number and pander result. You must generate from 1 to n (so, len of the list is n)!!!")
 
 class _CheckIsAnsweredToQuestion(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
-    
-    thoughts: str = Field(..., description=check_is_answered_to_question_discription)
+    thoughts: str = Field(..., description=check_is_answered_to_question_discription) # CoT
     is_answered: bool = Field(..., description="Whether the question has been already answered or not. If the question is answered, set True. If the question is not answered, set False. If the response looks on going to answer the question, set False to keep hearing. If looks so much confused, give up and set True.")
     observed_prob_of_yes: float = Field(..., description="The probability of the answer being 'yes'. This must be between 0 and 1. Around 0.5 means not related, both, or difficult. Please set the number as detailed as possible.")
 
 class _CheckIsQuestionExplained(BaseModel):
-    class Config:
-        allow_population_by_field_name = True
-    
-    thoughts: str = Field(..., description=check_is_question_explained_discription)
+    thoughts: str = Field(..., description=check_is_question_explained_discription) # CoT
     is_question_explained: bool = Field(..., description="Whether the question or similar question has been asked in the response. If the question has been asked, set True. If the question has not been asked, set False.")
 
 def pydantic_to_dict(obj):
@@ -95,25 +73,15 @@ def pydantic_to_dict(obj):
         return obj
 
 # Define the models
-gpt_4o_mini_model = ChatOpenAI(model="gpt-4o-mini", max_tokens=4096).bind(
-        response_format={"type": "json_object"}
-    )
-fireworks_llama70b = ChatFireworks(model="accounts/fireworks/models/llama-v3p2-90b-vision-instruct", max_tokens=4096).bind(
-        response_format={"type": "json_object"}
-    )
+gpt_4o_model = ChatOpenAI(model="gpt-4o", max_tokens=4096)
+fireworks_llama70b = ChatFireworks(model="accounts/fireworks/models/llama-v3p2-90b-vision-instruct", max_tokens=4096)
 claude_3_haiku_model = ChatAnthropic(model="claude-3-haiku-20240307", max_tokens=4096)
 claude_3_5_sonnet_model = ChatAnthropic(model="claude-3-5-sonnet-20241022", max_tokens=4096)
-fireworks_llama_v3p2_11b = ChatFireworks(model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", max_tokens=4096).bind(
-        response_format={"type": "json_object"}
-    )
-groq_llama_v3p2_90b = ChatOpenAI(model="llama-3.2-90b-text-preview", max_tokens=4096, api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1").bind(
-        response_format={"type": "json_object"}
-    )
+fireworks_llama_v3p2_11b = ChatFireworks(model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", max_tokens=4096)
 
-smart_model = gpt_4o_mini_model
-fast_model = gpt_4o_mini_model
-fast_quasi_model = groq_llama_v3p2_90b
-quasi_model = claude_3_5_sonnet_model
+smart_model = gpt_4o_model
+fast_model = fireworks_llama70b
+quasi_fast_model = claude_3_5_sonnet_model
 
 # Define the prompts and output parsers for the "classify_chunk" usecase
 output_parser_evaluate_probabilities_of_chunk = JsonOutputParser(pydantic_object=_EvaluationProbabilityOfYesResult)
@@ -170,9 +138,9 @@ def get_response_util(usecase_name : str) -> RunnableSequence:
     if usecase_name == "evaluate_probabilities_of_chunk":
         return prompt_template_evaluate_probabilities_of_chunk | fast_model | output_parser_evaluate_probabilities_of_chunk
     elif usecase_name == "generate_questions":
-        return prompt_template_generate_questions | quasi_model | output_parser_generate_questions
+        return prompt_template_generate_questions | quasi_fast_model | output_parser_generate_questions
     elif usecase_name == "generate_questions_fast":
-        return prompt_template_generate_questions | fast_quasi_model | output_parser_generate_questions
+        return prompt_template_generate_questions | fast_model | output_parser_generate_questions
     elif usecase_name == "check_open_answer":
         return prompt_template_check_open_answer | fast_model | output_parser_check_open_answer
     elif usecase_name == "check_is_answered_to_question":

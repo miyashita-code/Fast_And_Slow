@@ -52,7 +52,7 @@ class UoT:
         self.debug_print(f"UoT initialized with {len(initial_items)} items")
 
     async def extend(self) -> None:
-        self.debug_print("Starting tree extension")
+        #self.debug_print("Starting tree extension")
         if not self.root.children:
             self.debug_print("Generating first layer")
             await self.extend_single_layer(self.root, 1)

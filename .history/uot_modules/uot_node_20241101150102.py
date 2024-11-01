@@ -105,73 +105,19 @@ class UoTNode:
         
         return omega_yes, omega_no, p_yes_given_items, p_no_given_items
 
-    async def extend_single_layer(self, root: 'UoTNode', depth: int) -> None:
-        self.debug_print("extend_single_layer", f"Extending layer at depth {depth}")
+    async def extend_single_layer(self) -> None:
+        print(f"Extending layer at depth {self.depth}")
+        if self.is_terminal or self.depth >= self.n_extend_layers - 1:
+            print(f"Reached terminal node or max depth at {self.depth}")
+            return
+
+        if not self.children:
+            await self.generate_children()
+            print(f"Generated {len(self.children)} children at depth {self.depth}")
+        else:
+            extension_tasks = [child.extend_single_layer() for child in self.children]
+            await asyncio.gather(*extension_tasks)
         
-        if not self.children and not self.is_terminal:
-            try:
-                # 最初の層のみ高速モードを使用
-                use_fast_mode = (depth == 1)
-                results = await generate_questions_and_estimate_probability(
-                    self.items,
-                    self.n_question_candidates,
-                    self.history,
-                    [self.get_grobal_context()] if self.get_grobal_context else None,
-                    top_5_items=self._get_top_5_items(),
-                    use_fast_mode=use_fast_mode
-                )
-            except Exception as e:
-                self.debug_print("extend_single_layer", f"API call failed: {str(e)}")
-                self.debug_print("extend_single_layer", f"Error details: {traceback.format_exc()}")
-                results = None
-
-            if results:
-                self.generated_info = results
-                self.children = []
-                for question_data in results:
-                    question = question_data["question"]
-                    item_probabilities = question_data["evaluated_items"]
-
-                    p_yes = sum(item_prob["p_yes_given_item"] * item.p_s for item_prob, item in zip(item_probabilities, self.items))
-                    p_no = 1 - p_yes
-
-                    omega_yes, omega_no, p_yes_given_items, p_no_given_items = self._calculate_posterior_probabilities(item_probabilities, p_yes, p_no)
-
-                    information_gain = self._calculate_information_gain(omega_yes, omega_no, p_yes, p_no)
-
-                    self.generated_info.append({
-                        "question": question,
-                        "p_yes": p_yes,
-                        "p_no": p_no,
-                        "p_yes_given_items": p_yes_given_items,
-                        "p_no_given_items": p_no_given_items,
-                        "omega_yes": omega_yes,
-                        "omega_no": omega_no,
-                        "information_gain": information_gain
-                    })
-
-                    is_terminal_yes = self.depth + 1 >= self.n_extend_layers - 1 or len(omega_yes) <= 2
-                    is_terminal_no = self.depth + 1 >= self.n_extend_layers - 1 or len(omega_no) <= 2
-
-                    yes_node = UoTNode(question, omega_yes, parent=self, reply=True, p_reply=p_yes, 
-                                    history=self.history + [{"q": question, "a": True, "p": p_yes}], 
-                                    is_debug=self.is_debug, is_terminal=is_terminal_yes, generated_info=self.generated_info, get_grobal_context=self.get_grobal_context)
-                    no_node = UoTNode(question, omega_no, parent=self, reply=False, p_reply=p_no, 
-                                    history=self.history + [{"q": question, "a": False, "p": p_no}], 
-                                    is_debug=self.is_debug, is_terminal=is_terminal_no, generated_info=self.generated_info, get_grobal_context=self.get_grobal_context)
-
-                    yes_node.configure_node(self.n_extend_layers, self.accumulation, self.expected_method, self.n_max_pruning, self.lambda_, self.n_question_candidates)
-                    no_node.configure_node(self.n_extend_layers, self.accumulation, self.expected_method, self.n_max_pruning, self.lambda_, self.n_question_candidates)
-
-                    self.children.extend([yes_node, no_node])
-
-                    self.debug_print("extend_single_layer", f"Generated child nodes for question: {question}, p_yes={p_yes}, p_no={p_no}, information_gain={information_gain}")
-
-                self.debug_print("extend_single_layer", f"Total child nodes generated: {len(self.children)}")
-            else:
-                self.debug_print("extend_single_layer", "No questions generated")
-                return
-
         await self.calculate_rewards()
         self.prune_children()
         self.current_extended_depth += 1

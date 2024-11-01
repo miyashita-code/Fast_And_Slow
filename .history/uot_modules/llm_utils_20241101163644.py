@@ -95,7 +95,7 @@ def pydantic_to_dict(obj):
         return obj
 
 # Define the models
-gpt_4o_mini_model = ChatOpenAI(model="gpt-4o-mini", max_tokens=4096).bind(
+gpt_4o_model = ChatOpenAI(model="gpt-4o", max_tokens=4096).bind(
         response_format={"type": "json_object"}
     )
 fireworks_llama70b = ChatFireworks(model="accounts/fireworks/models/llama-v3p2-90b-vision-instruct", max_tokens=4096).bind(
@@ -110,8 +110,8 @@ groq_llama_v3p2_90b = ChatOpenAI(model="llama-3.2-90b-text-preview", max_tokens=
         response_format={"type": "json_object"}
     )
 
-smart_model = gpt_4o_mini_model
-fast_model = gpt_4o_mini_model
+smart_model = gpt_4o_model
+fast_model = fireworks_llama_v3p2_11b
 fast_quasi_model = groq_llama_v3p2_90b
 quasi_model = claude_3_5_sonnet_model
 

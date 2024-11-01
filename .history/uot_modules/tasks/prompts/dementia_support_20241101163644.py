@@ -69,9 +69,6 @@ Here is all items you need to devide:
 Here is top_5 items & their probabilities, if they are high prob, it is better way to focus on them to devide. (If each top_5_items are around {one_divided_n}, You cannot make a question that ask about the item directly. In other words, you should update the probabilities of a broad range of items when dealing with questions about somewhat abstract characteristics.):
 {top_5_items}
 
-Here is system instruction to generate questions. is true, you have to make much abstract question like ignoreing top_5_items and consider all items. if false, you have to make a question that ask about the top_5_items directly or like that.
-{is_abstract}
-
 Caution:
 Do not forget to be respectful. Easy to answer question that ask say clearly yes or clearly no is better. In Japanese 「じゃないですか?」is difiicult to destingish yes or no because of grammer, so avoid to say. It is not a good question to directly name and definitively delve into something unless the probability of it being correct exceeds 30%. Otherwise, if exceed 30% by just single item, you can make a question that ask about the item directly.
 Beautiful question is one in which the items are equally divided by the question into 'yes', 'no', and 'irrelevant', with 'both' and 'difficult' being as close to zero as possible. Please avoid making definitive statements about things you are not supposed to know, as it can be unpleasant.

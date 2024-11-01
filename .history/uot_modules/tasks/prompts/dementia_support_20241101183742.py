@@ -69,7 +69,7 @@ Here is all items you need to devide:
 Here is top_5 items & their probabilities, if they are high prob, it is better way to focus on them to devide. (If each top_5_items are around {one_divided_n}, You cannot make a question that ask about the item directly. In other words, you should update the probabilities of a broad range of items when dealing with questions about somewhat abstract characteristics.):
 {top_5_items}
 
-Here is system instruction to generate questions. is true, you have to make much abstract question like ignoreing top_5_items and consider all items. if false, you have to make a question that ask about the top_5_items directly or like that.
+Here is system instruction to generate questions. is true, you have to make much abstract question like ignoreing top_5_items and consider all items.
 {is_abstract}
 
 Caution:

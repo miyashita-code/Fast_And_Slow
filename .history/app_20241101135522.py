@@ -247,19 +247,12 @@ def get_token():
     api_key = request.headers.get('API-Key')
     user = UserAuth.query.filter_by(api_key=api_key).first()
 
-    
-
     if user:
         payload = {
             'user_id': user.id,
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         }
         token = jwt.encode(payload, os.environ.get('SECRET_KEY_JWT'), algorithm='HS256')
-
-        if user.id in backend_instances:
-            bp = backend_instances[user.id]
-            bp.stop()
-
         return jsonify({'token': token})
     else:
         return jsonify({'message': 'Invalid API Key'}), 401

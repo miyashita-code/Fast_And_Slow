@@ -7,12 +7,11 @@ from typing import List, Dict, Any, Tuple
 from collections import defaultdict
 import sys
 import asyncio
-import random
 
 from uot_modules.llm_utils import get_response_util
 from uot_modules.item import Item
 
-async def generate_questions_and_estimate_probability(items : list[Item], ques_num : int, historys=None, additional_context=None, max_item_size_at_once=10, top_5_items : dict = None, use_fast_mode: bool = False):
+async def generate_questions_and_estimate_probability(items : list[Item], ques_num : int, historys=None, additional_context=None, max_item_size_at_once=10, top_5_items : dict = None):
    """
    Generates questions and estimates the probability of the given items being true.
 
@@ -21,9 +20,8 @@ async def generate_questions_and_estimate_probability(items : list[Item], ques_n
        ques_num (int): Number of questions to generate.
        historys (list, optional): List of previous questions and answers. Defaults to None.
        additional_context (list, optional): Additional context for generating questions. Defaults to None.
-       max_item_size_at_once (int, optional): Maximum number of items to handle simultaneously. Defaults to 10.
+       max_item_size_at_once (int, optional): Maximum number of items to handle simultaneously. Defaults to 10. (must be small enough in order not to llm forget)
        top_5_items (dict[str, float], optional): Top 5 items and their probabilities. Defaults to None.
-       use_fast_mode (bool, optional): Whether to use fast mode for question generation. Defaults to False.
 
    Returns:
        list: A list of dictionaries where each dictionary contains the classification results for a question.
@@ -49,7 +47,7 @@ async def generate_questions_and_estimate_probability(items : list[Item], ques_n
    additional_context_str = ", ".join(additional_context) if additional_context else ""
    historys_str = format_history(historys)
 
-   generate_questions_chain = get_response_util("generate_questions_fast" if use_fast_mode else "generate_questions")
+   generate_questions_chain = get_response_util("generate_questions")
 
    response = generate_questions_chain.invoke({
        "item_name_list": [item.get_name() for item in items],
@@ -57,8 +55,7 @@ async def generate_questions_and_estimate_probability(items : list[Item], ques_n
        "n": ques_num,
        "one_divided_n": 1/ques_num if ques_num > 0 else 0,
        "additional_context": additional_context_str,
-       "top_5_items": top_5_items,
-       "is_abstract": random.random() < 0.5
+       "top_5_items": top_5_items
    })
 
 
