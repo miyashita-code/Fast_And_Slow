@@ -379,29 +379,21 @@ def handle_message(data):
             return jsonify({'message': 'Invalid message format!'}), 400
 
 @socketio.on('go_next_state')
-def handle_go_next_state(data):
+def handle_go_next_state(data=None):
     """
     クライアントからの 'go_next_state' イベントを処理します。
     """
-    token = request.headers.get('token')
-    if not token:
-        token = request.args.get('token')
-
+    token = request.args.get('token')
+    
     is_valid, current_user, error_message = check_token(token)
-
     if not is_valid:
         return jsonify({'message': error_message}), 403
 
-    if current_user is None:
-        return jsonify({'message': 'User not found!'}), 404
-
     if current_user.id in backend_instances:
         bp = backend_instances[current_user.id]
-        # 既存のプロセスの状態管理がうまくいくようにする
         bp.handle_go_next_state()
     else:
         return jsonify({'message': 'Backend process not found!'}), 404
-
 
 @socketio.on('start_lending_ear')
 def handle_start_lending_ear():
@@ -438,6 +430,40 @@ def handle_start_instruction():
         bp = backend_instances[current_user.id]
         bp.stop()
         threading.Thread(target=bp.instruction_run).start()
+    else:
+        return jsonify({'message': 'Backend process not found!'}), 404
+
+@socketio.on('go_detail')
+def handle_go_detail(data=None):
+    """
+    クライアントからの 'go_detail' イベントを処理します。
+    """
+    token = request.args.get('token')
+    
+    is_valid, current_user, error_message = check_token(token)
+    if not is_valid:
+        return jsonify({'message': error_message}), 403
+
+    if current_user.id in backend_instances:
+        bp = backend_instances[current_user.id]
+        bp.handle_go_detail()
+    else:
+        return jsonify({'message': 'Backend process not found!'}), 404
+
+@socketio.on('back_to_start')
+def handle_back_to_start(data=None):
+    """
+    クライアントからの 'back_to_start' イベントを処理します。
+    """
+    token = request.args.get('token')
+    
+    is_valid, current_user, error_message = check_token(token)
+    if not is_valid:
+        return jsonify({'message': error_message}), 403
+
+    if current_user.id in backend_instances:
+        bp = backend_instances[current_user.id]
+        bp.handle_back_to_start()
     else:
         return jsonify({'message': 'Backend process not found!'}), 404
 

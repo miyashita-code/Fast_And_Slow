@@ -131,12 +131,7 @@ class BackEndProcess:
             event (str): Event name to emit.
             data (dict): Data to send as key-value pairs.
         """
-        print("*" * 20)
-        print("\n\n")
-        print(f"Sending event: {event}")
-        print(f"Data: {data}")
-        print("*" * 20)
-        print("\n\n")
+
         self.socketio.emit(event, data, room=self.room)
     
     def send_socket_instruction(self, event, data):
@@ -147,12 +142,6 @@ class BackEndProcess:
             event (str): Event name to emit.
             data (dict): Data to send as key-value pairs.
         """
-        print("*" * 20)
-        print("\n\n")
-        print(f"Sending event: {event}")
-        print(f"Data: {data}")
-        print("*" * 20)
-        print("\n\n")
         self.socketio.emit(event, data, room=self.room)
 
     def get_messages(self):
@@ -266,5 +255,18 @@ class BackEndProcess:
         'go_next_state' イベントを処理し、次のステートへ進みます。
         """
         if self.conversation_controller:
-            # 会話状態やフラグの整合性を保つため、適切に処理
-            self.conversation_controller.schedule_proceed_to_next_state()
+            self.conversation_controller.handle_socket_event('next_state')
+
+    def handle_go_detail(self):
+        """
+        'go_detail' イベントを処理し、詳細状態へ遷移します。
+        """
+        if self.conversation_controller:
+            self.conversation_controller.handle_socket_event('go_detail')
+
+    def handle_back_to_start(self):
+        """
+        'back_to_start' イベントを処理し、最初の状態に戻ります。
+        """
+        if self.conversation_controller:
+            self.conversation_controller.handle_socket_event('back_to_start')

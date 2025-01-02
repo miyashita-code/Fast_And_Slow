@@ -6,7 +6,12 @@ streamlitVenv
 
 sample_code.txt
 
-result
+
+
+.history
+Errors/
+
+migrations/
 
 
 REMENTIA_OWN_APIKEY.xlsx

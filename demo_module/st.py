@@ -1,4 +1,5 @@
-from typing import Callable, List, NamedTuple
+from typing import Callable, List, NamedTuple, Optional
+
 import asyncio
 from pydantic import BaseModel
 from langchain.prompts import PromptTemplate
@@ -61,7 +62,7 @@ Follow these output format instructions (100%, only json output):
 {format_instructions}
 
 caution:
-even if there are no user responses to check, json以外で答えるな！一文字も追加するな！, 「次は？」とか言われたらすぐに次に行け！次の内容の話を始めてもすぐに次に行け！
+even if there are no user responses to check, json以外で答えるな！一文字も追加するな！, 「次は？」とか言われたらすぐに次に行け！次の内容の話を始めもすぐに次に行け！
 """
 
 # 出力パーサー
@@ -92,10 +93,11 @@ check_is_finished_chain = prompt_template_check_is_finished | fast_model | outpu
 
 # メインの会話コントローラー
 class State(NamedTuple):
-    detail: str
+    description: str
     name: str
     time: int
     next_state: str = ""
+    detail_name: Optional[str] = None
     title: str = ""
 
 class LinearConversationController:
@@ -115,6 +117,8 @@ class LinearConversationController:
         self.thread = None
         self.state_changed = False  # 状態変化を追跡するフラグを追加
         self.loop = None  # イベントループを初期化
+        self.current_state_name = self.states[0].name  # インデックスではなく状態名で現在の状態を管理
+        self.state_dict = {state.name: state for state in self.states}  # 状態名からStateを取得する辞書
 
     def set_callbacks(self, callback: Callable, direct_prompting_func: Callable):
         self.callback = callback
@@ -138,42 +142,77 @@ class LinearConversationController:
 
         return [
             State(
-                detail="散歩に行きませんか？",
-                name="着替えをする",
+                description="散歩に行きませんか？",
+                name="身支度を始める",
                 time=0,
-                next_state="上着を着る",
-                title="散歩に行きませんか？ 着替えをする"
+                next_state="服装を整える",
+                title="散歩に行きませんか？ 身支度を始める",
+                detail_name=None
             ),
             State(
-                detail="外に行く前に服装だけ整えたいですね。今日は外の気温が低いので、温かい上着を着るのがおすすめですよ。(5~10度前後みたいですよ)",
+                description="靴下を履いたり、上着を着たりしましょう",
+                name="服装を整える",
+                time=0,
+                next_state="トイレに行く",
+                title="服装を整える",
+                detail_name="靴下を履く"
+            ),
+            State(
+                    description="靴下は履いていますか？履いていなければ靴下を履きましょう。",
+                    name="靴下を履く",
+                    time=0,
+                    next_state="上着を着る",
+                    title="靴下を履く",
+                    detail_name="靴下を探す"
+            ),
+            State(
+                description="靴下が見つからない場合は、服がかかっているところの下にある引き戸にあるのでそこを見てください。",
+                name="靴下を探す",
+                time=0,
+                next_state="上着を着る",
+                title="靴下を探す。引き出しの中",
+                detail_name="さらに靴下を探す"
+            ),
+            State(
+                description="それでも靴下が見つからない場合は、窓のそばによく落ちてるのでそこを確認してください。",
+                name="さらに靴下を探す",
+                time=0,
+                next_state="上着を着る",
+                title="窓のそばに靴下が落ちていることがあるので確認する",
+                detail_name="さらに靴下を探す"
+            ), 
+            State(
+                description="外に行く前に服装だけ整えたいですね。今日は外の気温が低いので、温かい上着を着るのがおすすめですよ。(10度前後みたいですよ)",
                 name="上着を着る",
                 time=0,
                 next_state="トイレに行く",
                 title="上着を着る"
             ),
             State(
-                detail="靴下と上着の準備が済んだら、念のためトイレを済ませておくと安心ですね。",
+                description="靴下と上着の準備が済んだので着替えは完了です。あとは必要に応じて念のためトイレを済ませておくと安心ですね。",
                 name="トイレに行く",
                 time=0,
                 next_state="靴箱に向かう",
-                title="トイレに行く"
+                title="必要に応じてトイレに行く"
             ),
             State(
-                detail="それでは、1階の靴箱に向かいましょう。",
+                description="それでは、1階の靴箱に向かいましょう。",
                 name="靴箱に向かう",
                 time=0,
-                next_state="不安を取り除く",
-                title="靴箱に向かう"
-            ),
-            State(
-                detail="スリッパのままでいいのか、靴はどこにあるのか不安になることがあるかもしれませんが、下に靴箱があるので大丈夫ですよ。",
-                name="不安を取り除く",
-                time=1,
                 next_state="終了",
-                title="不安を取り除く"
+                title="靴箱に向かう",
+                detail_name="スリッパはそのままで大丈夫"
             ),
             State(
-                detail="これで準備が完了しました。お気をつけていってらっしゃい！",
+                description="スリッパのままでいいのか、靴はどこにあるのか不安になることがあるかもしれませんが、下に靴箱があるので大丈夫ですよ。そのまま向かってください。",
+                name="靴箱に向かう",
+                time=0,
+                next_state="終了",
+                title="靴箱に向かう",
+                detail_name=None
+            ),
+            State(
+                description="これで準備が完了しました。お気をつけていってらっしゃい！",
                 name="終了",
                 time=0,
                 next_state="終了",
@@ -201,20 +240,20 @@ class LinearConversationController:
             return
 
         if "assistant" in response and not self.is_explained:
-            print(f"global_responses_buffer: {self.global_responses_buffer}, responses_buffer: {self.responses_buffer}, detail: {self.states[self.current_state_index].detail}")
-            thought, result = await self.check_is_explained(self.global_responses_buffer, self.responses_buffer, self.states[self.current_state_index].detail)
+            print(f"global_responses_buffer: {self.global_responses_buffer}, responses_buffer: {self.responses_buffer}, detail: {self.states[self.current_state_index].description}")
+            thought, result = await self.check_is_explained(self.global_responses_buffer, self.responses_buffer, self.states[self.current_state_index].description)
             print(f"Check is explained thought: {thought}")
             if result:
                 self.is_explained = True
             else:
                 await self.direct_prompting_func(
-                    f"次の内容について可能な限り早い段階で伝えてください。ただし対話の文脈を壊さないように少し言い方を変えても構いません。内容: {self.states[self.current_state_index].detail}, また場合によっては次のステップに進んでもいいです。（次のステップの内容{self.states[min(self.current_state_index+1, len(self.states)-1)].detail}",
+                    f"次の内容について可能な限り早い段階で伝えてください。ただし対話の文脈を壊さないように少し言い方を変えても構いません。内容: {self.states[self.current_state_index].description}, また場合によっては次のステップに進んでもいいです。（次のステップの内容{self.states[min(self.current_state_index+1, len(self.states)-1)].description}",
                     self.states[self.current_state_index].title  # タイトルを追加
                 )
         elif "user" in response and self.is_explained:
             self.responses_buffer.append(response)
-            print(f"global_responses_buffer: {self.global_responses_buffer}, responses_buffer: {self.responses_buffer}, detail: {self.states[self.current_state_index].detail}, next_state: {self.states[self.current_state_index].next_state}")
-            thought, is_finished = await self.check_is_finished(self.global_responses_buffer, self.responses_buffer, self.states[self.current_state_index].detail, self.states[self.current_state_index].next_state)
+            print(f"global_responses_buffer: {self.global_responses_buffer}, responses_buffer: {self.responses_buffer}, detail: {self.states[self.current_state_index].description}, next_state: {self.states[self.current_state_index].next_state}")
+            thought, is_finished = await self.check_is_finished(self.global_responses_buffer, self.responses_buffer, self.states[self.current_state_index].description, self.states[self.current_state_index].next_state)
             print(f"Check is finished thought: {thought}")
             if is_finished:
                 self.responses_buffer = []
@@ -222,7 +261,7 @@ class LinearConversationController:
                 self.is_explained = False
             else:
                 await self.direct_prompting_func(
-                    f"次の内容について可能な限り早い段階で伝えてください。すでに伝えている場合は、ゆっくりと傾聴し積極的に反応を引き出したり追加で掘り下げて説明してください。内容: {self.states[self.current_state_index].detail}, また場合によっては次のステップに進んでもいいです。（次のステップの内容{self.states[min(self.current_state_index+1, len(self.states)-1)].detail}",
+                    f"次の内容について可能な限り早い段階で伝えてください。すでに伝えている場合は、ゆっくりと傾聴し積極的に反応を引き出したり追加で掘り下げて説明してください。内容: {self.states[self.current_state_index].description}, また場合によっては次のステップに進んでもいいです。（次のステップの内容{self.states[min(self.current_state_index+1, len(self.states)-1)].description}",
                     self.states[self.current_state_index].title  # タイトルを追加
                 )
 
@@ -236,26 +275,68 @@ class LinearConversationController:
                 await self.set_timer()
 
     async def proceed_to_next_state(self):
-        self.current_state_index += 1
-        self.state_changed = True  # 状態が変化したことを記録
+        current_state = self.state_dict.get(self.current_state_name)
+        next_state_name = current_state.next_state
+        if next_state_name and next_state_name in self.state_dict:
+            self.current_state_name = next_state_name
+            self.state_changed = True
+            # フラグやバッファのリセット
+            self.is_explained = False
+            self.responses_buffer.clear()
+            self.global_responses_buffer.clear()
+            await self.send_next_message()
+        else:
+            await self.end_conversation()
 
+    async def go_to_detail(self):
+        current_state = self.state_dict.get(self.current_state_name)
+        detail_name = current_state.detail_name
+        if detail_name and detail_name in self.state_dict:
+            self.current_state_name = detail_name
+            self.state_changed = True
+            # フラグやバッファのリセット
+            self.is_explained = False
+            self.responses_buffer.clear()
+            self.global_responses_buffer.clear()
+            await self.send_next_message()
+        else:
+            self.send_socket("instruction", {"message": "詳細がないのでパスしてください"})
+    
+    async def back_to_start(self):
+        self.current_state_name = self.states[0].name
+        self.state_changed = True
         # フラグやバッファのリセット
         self.is_explained = False
         self.responses_buffer.clear()
         self.global_responses_buffer.clear()
-
-        print(f"current_state_index: {self.current_state_index}, states: {self.states}")
-        if self.current_state_index >= len(self.states):
-            await self.end_conversation()
-        else:
-            await self.send_next_message()
+        await self.send_next_message()
 
     async def send_next_message(self):
-        if self.current_state_index < len(self.states):
-            current_state = self.states[self.current_state_index]
-            # direct_prompting_func に title を追加で渡すように修正
+        current_state = self.state_dict.get(self.current_state_name)
+        if current_state:
+            # 次の状態の情報を取得
+            next_state = self.state_dict.get(current_state.next_state)
+            next_state_info = next_state.description if next_state else "終了"
+            
+            # 詳細状態の情報を取得
+            detail_state = self.state_dict.get(current_state.detail_name)
+            detail_info = detail_state.description if detail_state else None
+            
+            # メッセージを構築
+            message = {
+                "current": current_state.description,
+                "next": next_state_info,
+                "detail": detail_info,
+                "has_detail": detail_info is not None
+            }
+            
+            # direct_prompting_func に title とメッセージを追加で渡すように修正
             await self.direct_prompting_func(
-                f"Planing Systemから要請です。次の内容について可能な限り早い段階で伝えてください。なお、内容が不自然な場合は文脈が壊れないように少し言い方を変えても構いません。** 内容: {current_state.detail}**, また場合によっては次のステップに進んでもいいです。（次のステップの内容{self.states[min(self.current_state_index+1, len(self.states)-1)].detail}",
+                f"Planing Systemから要請です。次の内容について可能な限り早い段階で伝えてください。"
+                f"なお、内容が不自然な場合は文脈が壊れないように少し言い方を変えても構いません。"
+                f"\n\n現在の内容: {message['current']}"
+                f"\n次の内容: {message['next']}"
+                + (f"\n詳細な内容: {message['detail']}" if message['has_detail'] else ""),
                 current_state.title  # タイトルを追加
             )
 
@@ -271,7 +352,7 @@ class LinearConversationController:
             await self.end_conversation()
         else:
             await self.direct_prompting_func(
-                f"応答がないですが、準備中かと思われるので、進行について伺ってください。 : {self.current_state.detail}",
+                f"応答がないですが、準備中かと思われるので、進行について伺ってください。 : {self.current_state.description}",
                 self.states[self.current_state_index].title  # タイトルを追加
             )
 
@@ -365,6 +446,14 @@ class LinearConversationController:
             self.set_mode(False)
             self.thread.join()
             self.thread = None
+
+    def handle_socket_event(self, event_name: str):
+        if event_name == 'next_state':
+            asyncio.run_coroutine_threadsafe(self.proceed_to_next_state(), self.loop)
+        elif event_name == 'go_detail':
+            asyncio.run_coroutine_threadsafe(self.go_to_detail(), self.loop)
+        elif event_name == 'back_to_start':
+            asyncio.run_coroutine_threadsafe(self.back_to_start(), self.loop)
 
 # 使用例
 async def main():
