@@ -1,2 +1,3 @@
-from .auto_gpt import autogpt_main
+from .auto_gpt import AutoGPTController
 from .autogpt_prompt import AutoGPTPrompt
+

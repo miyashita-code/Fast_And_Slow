@@ -10,6 +10,7 @@ class DoNothing(BaseTool):
     description = (
         "Do nothing, and if is_wait_untill_dialog_upadated is True, wait untill dialog is updated."
         "Input is_wait_untill_dialog_upadated shold be a boolean value to decide wait or not."
+        "This tool is only for when literally nothing to do like after sending a message (instruction, message, ...)."
     )
 
 

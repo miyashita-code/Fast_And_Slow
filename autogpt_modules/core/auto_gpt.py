@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import os
+import sys
+
 from typing import List, Optional
 
 import langchain.globals
 
 from langchain_openai import ChatOpenAI
+import anthropic
+from langchain_anthropic import ChatAnthropic
 from langchain.chains.llm import LLMChain
 from langchain_core.language_models import BaseChatModel
 from langchain.memory import ChatMessageHistory
@@ -37,6 +42,7 @@ from langchain_openai import OpenAIEmbeddings
 import faiss
 import time
 
+
 from langchain_community.docstore import InMemoryDocstore
 from langchain_community.vectorstores import FAISS
 
@@ -51,7 +57,7 @@ from autogpt_modules.custom_tools import (
 
 )
 
-from .custom_congif import MODEL, THRED_CONSEQ_WAIT
+from .custom_congif import MODEL,MODEL_TYPE, THRED_CONSEQ_WAIT
 from .autogpt_prompt import AutoGPTPrompt
 
 load_dotenv()
@@ -119,7 +125,7 @@ class AutoGPT:
         )
 
 
-    def run(self, goals: List[str], send_socket : object, get_messages : object, isFin) -> str:
+    def run(self, goals: List[str], send_socket : object, get_messages : object, get_isFin : object) -> str:
         user_input = (
             "Determine which next command to use, "
             "and respond using the format specified above:"
@@ -139,7 +145,7 @@ class AutoGPT:
 
         while True and conseq_wait_count < THRED_CONSEQ_WAIT and loop_count < 100:
 
-            if(isFin):
+            if(get_isFin()):
                 print("Finish")
                 break
             
@@ -283,57 +289,73 @@ class AutoGPT:
 
         return baseMessages[::-1]
 
+class AutoGPTController:
+    def __init__(self):
+        self.auto_gpt = None
+        self.isFin = False
+
+    def main(self, send_socket, get_messages):
+        self.isFin = False
+
+        # Define your embedding model
+        embeddings = OpenAIEmbeddings()
+
+        # Initialize the vectorstore as empty
+        embedding_size = 1536
+        # L2ノルム全探索用
+        index = faiss.IndexFlatL2(embedding_size)
+        vectorstore = FAISS(embeddings, index, InMemoryDocstore({}), {})
+
+        retriever = vectorstore.as_retriever(search_kwargs=dict(k=5))
+        memory = vectorstore.as_retriever()
 
 
-def autogpt_main(send_socket, get_messages, isFin):
+        # init llm
+        if MODEL_TYPE == "openai":  
+            llm = ChatOpenAI(temperature=0, model=MODEL)
+        elif MODEL_TYPE == "anthropic":
+            anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
+            llm = ChatAnthropic(model=MODEL,anthropic_api_key=anthropic.api_key, temperature=0)
+        # load google search tool and custom tools
+        tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser()] #PanderDialogState()
 
-    # Define your embedding model
-    embeddings = OpenAIEmbeddings()
-
-    # Initialize the vectorstore as empty
-    embedding_size = 1536
-    # L2ノルム全探索用
-    index = faiss.IndexFlatL2(embedding_size)
-    vectorstore = FAISS(embeddings, index, InMemoryDocstore({}), {})
-
-    retriever = vectorstore.as_retriever(search_kwargs=dict(k=5))
-    memory = vectorstore.as_retriever()
-
-
-    # init llm
-    llm = ChatOpenAI(temperature=0, model=MODEL)
-
-    # load google search tool and custom tools
-    tools = tools = load_tools(["serpapi"], llm=llm) + [DoNothing(), UpdataInstructions(), GetIndividualCareInfoFromDB(), SendDirectMessageToUser(), PanderDialogState()]
-
-    auto_gpt = AutoGPT.from_llm_and_tools(
-        ai_name="認知症サポーター",
-        ai_role="認知症患者の生活における意思決定支援や不安解消を行う情緒的なケアを行うエージェントの裏方の支援を行う.userとの対話によるケアサポートの方向性を決定し, clientにinstructionを送信して制御する.特に傾聴とインストラクションの切り替えの指示出しが肝である。",
-        memory=memory,
-        tools=tools,
-        llm=llm,
-    )
+        auto_gpt = AutoGPT.from_llm_and_tools(
+            ai_name="認知症サポーター",
+            ai_role="認知症患者の生活における意思決定支援や不安解消を行う情緒的なケアを行うエージェントの裏方の支援を行う.userとの対話によるケアサポートの方向性を決定し, clientにinstructionを送信して制御する.特に傾聴とインストラクションの切り替えの指示出しが肝である。",
+            memory=memory,
+            tools=tools,
+            llm=llm,
+        )
 
 
-   
-    # Set verbose to be true
-    #langchain.globals.set_verbose(True)
+    
+        # Set verbose to be true
+        #langchain.globals.set_verbose(True)
 
-    auto_gpt.run(
-        goals=[
-            "状況が把握できるまでは傾聴のための指示を行う", 
-            "対話の履歴から、適切な問題を設定する。",
-            "必要に応じてデータベースのデータを参照する。",  
-            "よりよい応答のの方向性の決定を行い、インストラクションで具体的に事実に基づいて指示をする。"
-        ], 
-        send_socket=send_socket, 
-        get_messages=get_messages,
-        isFin=isFin
-    )
+        auto_gpt.run(
+            goals=[
+                "状況が把握できるまでは傾聴のための指示を行う", 
+                "対話の履歴から、適切な問題を設定する。",
+                "必要に応じてデータベースのデータを参照する。",  
+                "よりよい応答のの方向性の決定を行い、インストラクションで具体的に事実に基づいて指示をする。"
+            ], 
+            send_socket=send_socket, 
+            get_messages=get_messages,
+            get_isFin=self.get_isFin
+        )
+
+    def breakLoop(self):
+        self.isFin = True
+    
+    def get_isFin(self):
+        return self.isFin
 
 
 
 
 
 if __name__ == "__main__":
-    autogpt_main()
+
+    auto_gpt_controller = AutoGPTController()
+    auto_gpt_controller.main()
+

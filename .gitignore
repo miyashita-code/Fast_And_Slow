@@ -1,17 +1,24 @@
 # BEGIN: /c:/Users/miyam/OneDrive/Desktop/dev/GITHUB/FAST_AND_SLOW/Fast_And_Slow/.gitignore
-venv
+.venv
 streamlitVenv
 
 .env
 
 sample_code.txt
 
-result
+
+
+.history
+Errors/
+
+migrations/
 
 
 REMENTIA_OWN_APIKEY.xlsx
 
 REMENTIA_OWN_APIKEY.xlsx
 # END: /c:/Users/miyam/OneDrive/Desktop/dev/GITHUB/FAST_AND_SLOW/Fast_And_Slow/.gitignore
+
+
 
 

@@ -1,0 +1,4 @@
+[submodule "lendingEarDemo/modules/UoT_chat"]
+	path = lendingEarDemo/modules/UoT_chat
+	url = https://github.com/miyashita-code/UoT_chat.git
+	branch = feature/controller

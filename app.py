@@ -19,7 +19,7 @@ from firebase_admin import credentials, messaging
 
 
 from modules import db, UserAuth, BackEndProcess, parse_to_langchain_message_str
-
+from neo4j_modules.care_kg_db import CareKgDB
 # Load environment variables
 load_dotenv()
 
@@ -247,12 +247,19 @@ def get_token():
     api_key = request.headers.get('API-Key')
     user = UserAuth.query.filter_by(api_key=api_key).first()
 
+    
+
     if user:
         payload = {
             'user_id': user.id,
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         }
         token = jwt.encode(payload, os.environ.get('SECRET_KEY_JWT'), algorithm='HS256')
+
+        if user.id in backend_instances:
+            bp = backend_instances[user.id]
+            bp.stop()
+
         return jsonify({'token': token})
     else:
         return jsonify({'message': 'Invalid API Key'}), 401
@@ -302,15 +309,17 @@ def handle_connect(auth=None):
 
     print(f"socket connected : {current_user.name}")
 
+
     # join room
     room = request.sid
     join_room(room)
+    # Initialize the knowledge graph database
+    kg_db = CareKgDB(uri=os.environ.get('NEO4J_URI'), user=os.environ.get('NEO4J_USERNAME'), password=os.environ.get('NEO4J_PASSWORD'), user_uuid=current_user.id)
 
     # Manage backend process instance for the connected user
     if current_user.id not in backend_instances:
-        bp = BackEndProcess(socketio, room, current_user, db)
+        bp = BackEndProcess(socketio, room, current_user, db, kg_db)
         backend_instances[current_user.id] = bp
-        threading.Thread(target=bp.run).start()
     else:
         backend_instances[current_user.id].set_room(room)
 
@@ -321,27 +330,26 @@ def handle_disconnect():
     Handle socket disconnection.
     Leave room and stop backend process.
     """
-    token = request.headers.get('token')
-    if not token:
-        token = request.args.get('token')
-
+    token = request.args.get('token')
     is_valid, current_user, error_message = check_token(token)
     if not is_valid:
         print("Invalid token during disconnect")
         return
 
     print(f"Socket disconnected: {current_user.name}")
-
-    # Leave room
     room = request.sid
     leave_room(room)
 
-    # Stop and remove backend process instance for the disconnected user
     if current_user.id in backend_instances:
         bp = backend_instances[current_user.id]
         if bp.get_room() == room:
+            # 完全に停止せず、一時停止のみ
             bp.stop()
-            del backend_instances[current_user.id]
+            
+            # タイムアウトチェック
+            if bp.is_expired():
+                bp.force_stop()
+                del backend_instances[current_user.id]
 
 @socketio.on('chat_message')
 def handle_message(data):
@@ -353,22 +361,111 @@ def handle_message(data):
 
     is_valid, current_user, error_message = check_token(token)
     
-
     if not is_valid:
         return jsonify({'message': error_message}), 403
 
-
     print(f"chat message come")
-    user = UserAuth.query.filter_by(api_key="5163a9f2cf11cdc8a2cbc22cd95b4691fb04a9d1f1f41182830e6acb231ab10c").first()
+    if current_user is None:
+        print("current_user is None")
+        return jsonify({'message': 'User not found!'}), 404
 
-    if user.id in backend_instances:
-            print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
-            try:
-                message_content = parse_to_langchain_message_str(data)
-                backend_instances[user.id].set_messages(message_content)
-            except ValueError as e:
-                print(f"Error: {str(e)}")
-                return jsonify({'message': 'Invalid message format!'}), 400
+    if current_user.id in backend_instances:
+        print(f"message received : {data}, room : {request.sid}, bg : {backend_instances}")
+        try:
+            message_content = parse_to_langchain_message_str(data)
+            backend_instances[current_user.id].set_messages(message_content)
+        except ValueError as e:
+            print(f"Error: {str(e)}")
+            return jsonify({'message': 'Invalid message format!'}), 400
+
+@socketio.on('go_next_state')
+def handle_go_next_state(data=None):
+    """
+    クライアントからの 'go_next_state' イベントを処理します。
+    """
+    token = request.args.get('token')
+    
+    is_valid, current_user, error_message = check_token(token)
+    if not is_valid:
+        return jsonify({'message': error_message}), 403
+
+    if current_user.id in backend_instances:
+        bp = backend_instances[current_user.id]
+        bp.handle_go_next_state()
+    else:
+        return jsonify({'message': 'Backend process not found!'}), 404
+
+@socketio.on('start_lending_ear')
+def handle_start_lending_ear():
+    """
+    傾聴モードを開始するイベントハンドラー
+    """
+    print("start lending ear")
+    token = request.args.get('token')
+    
+    is_valid, current_user, error_message = check_token(token)
+    if not is_valid:
+        return jsonify({'message': error_message}), 403
+
+    if current_user.id in backend_instances:
+        bp = backend_instances[current_user.id]
+        bp.stop()
+        threading.Thread(target=bp.lending_ear_run).start()
+    else:
+        return jsonify({'message': 'Backend process not found!'}), 404
+
+@socketio.on('start_instruction')
+def handle_start_instruction():
+    """
+    指示モードを開始するイベントハンドラー
+    """
+    print("start instruction")
+    token = request.args.get('token')
+    
+    is_valid, current_user, error_message = check_token(token)
+    if not is_valid:
+        return jsonify({'message': error_message}), 403
+
+    if current_user.id in backend_instances:
+        bp = backend_instances[current_user.id]
+        bp.stop()
+        threading.Thread(target=bp.instruction_run).start()
+    else:
+        return jsonify({'message': 'Backend process not found!'}), 404
+
+@socketio.on('go_detail')
+def handle_go_detail(data=None):
+    """
+    クライアントからの 'go_detail' イベントを処理します。
+    """
+    token = request.args.get('token')
+    
+    is_valid, current_user, error_message = check_token(token)
+    if not is_valid:
+        return jsonify({'message': error_message}), 403
+
+    if current_user.id in backend_instances:
+        bp = backend_instances[current_user.id]
+        bp.handle_go_detail()
+    else:
+        return jsonify({'message': 'Backend process not found!'}), 404
+
+@socketio.on('back_to_start')
+def handle_back_to_start(data=None):
+    """
+    クライアントからの 'back_to_start' イベントを処理します。
+    """
+    token = request.args.get('token')
+    
+    is_valid, current_user, error_message = check_token(token)
+    if not is_valid:
+        return jsonify({'message': error_message}), 403
+
+    if current_user.id in backend_instances:
+        bp = backend_instances[current_user.id]
+        bp.handle_back_to_start()
+    else:
+        return jsonify({'message': 'Backend process not found!'}), 404
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host="localhost", port=int(os.environ.get('PORT')))
