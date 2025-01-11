@@ -4,7 +4,7 @@ import uuid
 import traceback
 
 from .models import Message
-from lending_ear_modules import LendingEarController
+from lending_ear_modules.lend_main import LendingEarController
 from demo_module.st import LinearConversationController
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
 from langchain_fireworks import ChatFireworks
@@ -117,7 +117,7 @@ class BackEndProcess:
         self.lending_ear_controller = None
         
         self.send_socket("instruction", {
-            "instruction": "インストラクションを始めます。簡単なあいさつの後、是非散歩に行きましょう。そのための身支度をする旨を伝えてください。",
+            "instruction": "インストラクションを始めます。簡単なあいさつの後、トレリハのための身支度をする旨を伝えてください。",
             "isLendingEar": False
         })
         

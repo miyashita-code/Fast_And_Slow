@@ -13,6 +13,8 @@ Errors/
 
 migrations/
 
+*/__pycache__/
+
 
 REMENTIA_OWN_APIKEY.xlsx
 

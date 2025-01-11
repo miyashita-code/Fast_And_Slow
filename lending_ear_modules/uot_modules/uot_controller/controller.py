@@ -1,9 +1,9 @@
 from typing import Callable
 
 
-
-from uot_modules import Item, UoT
-from uot_modules import check_is_question_explained, check_is_answered_to_question
+from lending_ear_modules.uot_modules.item import Item
+from lending_ear_modules.uot_modules.uot import UoT
+from lending_ear_modules.uot_modules.chat_utils import check_is_question_explained, check_is_answered_to_question
 from neo4j_modules.care_kg_db import CareKgDB
 
 class UoTController:

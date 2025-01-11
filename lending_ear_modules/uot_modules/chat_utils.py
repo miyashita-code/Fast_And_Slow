@@ -9,8 +9,9 @@ import sys
 import asyncio
 import random
 
-from uot_modules.llm_utils import get_response_util
-from uot_modules.item import Item
+from lending_ear_modules.uot_modules.llm_utils import get_response_util
+from lending_ear_modules.uot_modules.item import Item
+
 
 async def generate_questions_and_estimate_probability(items : list[Item], ques_num : int, historys=None, additional_context=None, max_item_size_at_once=10, top_5_items : dict = None, use_fast_mode: bool = False):
    """
@@ -66,7 +67,8 @@ async def generate_questions_and_estimate_probability(items : list[Item], ques_n
 
    #print(f"questions: {gen_questions}")
 
-   return _estimate_probability_of_items(items, gen_questions, historys_str, max_item_size_at_once)
+   probabilities = _estimate_probability_of_items(items, gen_questions, historys_str, max_item_size_at_once)
+   return probabilities
 
 def format_history(historys):
    """
@@ -161,7 +163,7 @@ def _estimate_probability_of_items(items: List[Item], questions: List[str], hist
     except Exception as e:
         print(f"Error classifying items: {e}")
         # Fallback to sequential processing if parallel processing fails
-        return estimate_probability_of_items(items, questions, history, 1)
+        return _estimate_probability_of_items(items, questions, history, 1)
 
 def _simulate_and_estimate_chunk(chunk: List[Item], question: str, history: str) -> Dict[str, Any]:
     """

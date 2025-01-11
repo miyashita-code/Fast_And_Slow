@@ -2,7 +2,7 @@ import sys
 import os
 
 
-from uot_controller.controller import UoTController
+from lending_ear_modules.uot_modules.uot_controller.controller import UoTController
 
 from neo4j_modules.care_kg_db import CareKgDB
 import asyncio

@@ -1,10 +1,13 @@
 import asyncio
 import numpy as np
 import time
-from typing import List, Dict, Tuple, Optional, Union, Callable
-from uot_modules.chat_utils import generate_questions_and_estimate_probability
-from uot_modules.item import Item
 import traceback
+
+from typing import List, Dict, Tuple, Optional, Union, Callable
+
+from lending_ear_modules.uot_modules.chat_utils import generate_questions_and_estimate_probability
+from lending_ear_modules.uot_modules.item import Item
+
 
 class UoTNode:
     api_stats = {

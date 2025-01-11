@@ -2,8 +2,9 @@ import asyncio
 import concurrent.futures
 from typing import List, Dict, Tuple, Optional, Union, Callable
 import re
-from uot_modules.item import Item
-from uot_modules.uot_node import UoTNode
+
+from lending_ear_modules.uot_modules.item import Item
+from lending_ear_modules.uot_modules.uot_node import UoTNode
 
 def blocking_input(prompt: str) -> str:
     return input(prompt)

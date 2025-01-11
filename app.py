@@ -463,7 +463,7 @@ def handle_back_to_start(data=None):
 
     if current_user.id in backend_instances:
         bp = backend_instances[current_user.id]
-        bp.handle_back_to_start()
+        bp.back_to_start()
     else:
         return jsonify({'message': 'Backend process not found!'}), 404
 
