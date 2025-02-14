@@ -50,9 +50,9 @@ sequenceDiagram
     User->>Fast: ユーザー入力
     Fast-->>User: 即時応答
     Fast->>Slow: 非同期処理要求
-    Fast->>User
+    Fast->>User: 
     User->>Fast: ユーザー入力
-    
+
     ...
 
     Slow->>KG: コンテキスト分析

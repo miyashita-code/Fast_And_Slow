@@ -3,6 +3,9 @@
 import traceback
 from typing import Optional, List, Dict, Any, Callable
 import eventlet
+from datetime import datetime
+import os
+import json
 
 from planning_modules.lending_ear_modules.uot_modules.item import Item
 from planning_modules.state_machine_modules.context_info import ContextInfo
@@ -92,6 +95,7 @@ class BaseNode:
         self.debug_print = self.__debug_print__  # debug_printのエイリアスを追加
 
         self.enriched_info: Optional[Dict[str, Any]] = None
+        self._is_enriching = False  # フラグを追加
         self._llm_enrichment = LLMEnrichment()
 
         self.__debug_print__(
@@ -274,6 +278,11 @@ class BaseNode:
             self.__debug_print__(f"Error in construct_children_subtree: {e}")
             self.__debug_print__(traceback.format_exc())
 
+    def add_enriched_info(self, enriched_data: Dict[str, Any]) -> None:
+        """LLMで生成した拡充情報を追加"""
+        self.enriched_info = enriched_data
+        self._is_enriching = False
+
     async def __create_node__(self, node_name: str) -> Optional['BaseNode']:
         """
         includes 先のノード名から BaseNode を作成するヘルパー
@@ -293,9 +302,10 @@ class BaseNode:
                 return None
 
             # LLM拡充を非同期で開始
-            await self._llm_enrichment.enrich_node_info(
+            self._llm_enrichment.enrich_node_info(
                 node_name=info['name'],
-                description=info['description']
+                description=info['description'],
+                callback=self.add_enriched_info  # コールバックを渡す
             )
             
             # 新しいItemを作成（全ての情報を渡す）
@@ -325,9 +335,6 @@ class BaseNode:
             if node:
                 self.__debug_print__(f"Successfully created child node => {node.name}, parent={self.name}")
 
-            # 非同期で拡充情報を確認
-            node.enriched_info = self._llm_enrichment.get_enriched_info(node_name)
-            
             return node
         except Exception as e:
             self.__debug_print__(f"Error in __create_node__: {str(e)}")
@@ -457,7 +464,12 @@ class BaseNode:
                 return "reset"
             elif event_name == "back_previous":
                 return "previous"
-            elif event_name == "go_detail" and self.children:
+            elif event_name == "go_detail":
+                if not self.children:
+                    # pass
+                    self.send_socket("next_state_info", self.create_error_state_info("detailはこれ以上ないので，現状のdescriptionをもとにできるだけUSERに寄り添って丁寧に説明してみてください。"))
+                    continue
+
                 self.debug_print(f"[{self.name}] go_detail => run all children")
                 for idx, child in enumerate(self.children):
                     self.debug_print(f"Detail run child={child.name}, index={idx}")
@@ -478,6 +490,32 @@ class BaseNode:
 
     def _create_state_info(self, **additional_flags) -> Dict[str, Any]:
         """共通のstate_info生成ロジック"""
+        # 状態のスナップショットを保存
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        base_dir = "debug_logs/state_transitions"
+        os.makedirs(base_dir, exist_ok=True)
+        
+        # グラフの保存
+        dot = self.visualize_graph()
+        graph_path = f"{base_dir}/graph_{timestamp}.png"
+        dot.render(graph_path, format="png", cleanup=True)
+        
+        # 状態情報の保存
+        state_info = {
+            "timestamp": timestamp,
+            "node_name": self.name,
+            "local_state": self.local_state,
+            "children": [c.name for c in self.children],
+            "followers": [f.name for f in self.followers],
+            "description": self.basic_description
+        }
+        
+        state_path = f"{base_dir}/state_{timestamp}.json"
+        with open(state_path, "w", encoding="utf-8") as f:
+            json.dump(state_info, f, ensure_ascii=False, indent=2)
+            
+        print(f"[DEBUG] Saved state snapshot: {timestamp}")
+
         # 基本情報を構築
         has_detail = len(self.children) > 0
         is_last_top_node = (
@@ -499,26 +537,43 @@ class BaseNode:
             "has_next": has_next
         }
 
-        # LLMによる拡充情報を取得
-        enriched_info = self.get_enriched_info()
-        if enriched_info:
-            # 拡充情報で更新（必要最小限の情報のみ）
-            state_info.update({
-                "detail_instruction": enriched_info.get("detail_instruction", ""),
-                "call_to_action": enriched_info.get("call_to_action", ""),
-                "title": enriched_info.get("jp_title", state_info["title"])
-            })
-        else:
-            # まだ拡充情報がない場合は非同期で取得を開始
-            eventlet.spawn(
-                self._llm_enrichment.enrich_node_info,
+        # 拡充情報がない場合は生成を待機
+        if self.enriched_info is None:
+            print(f"\n[State Info] {self.name}の拡充情報を待機中...")
+            self._is_enriching = True
+            
+            # 非同期で生成開始（まだ開始されていない場合）
+            self._llm_enrichment.enrich_node_info(
                 self.name,
                 self.basic_description,
-                state_info
+                callback=self.add_enriched_info
             )
+            
+            # 生成完了まで待機（最大10秒）
+            for _ in range(10):
+                if self.enriched_info is not None:
+                    break
+                eventlet.sleep(1)
+                print(".", end="", flush=True)
+            print()
+
+        # 拡充情報があれば適用
+        if self.enriched_info:
+            state_info.update({
+                "detail_instruction": self.enriched_info.get("detail_instruction", ""),
+                "call_to_action": self.enriched_info.get("call_to_action", ""),
+                "title": self.enriched_info.get("jp_title", state_info["title"])
+            })
 
         # 追加のフラグを適用
         state_info.update(additional_flags)
+        return state_info
+    
+    def create_error_state_info(self, error_message: str) -> Dict[str, Any]:
+        """エラー状態のstate_infoを生成"""
+        state_info = self._create_state_info()
+        state_info["error_message"] = error_message
+        state_info["is_error"] = True
         return state_info
 
             
@@ -616,32 +671,36 @@ class BaseNode:
             real_tops = [self]
 
         # -----------------------------
-        # 2) BFSで (node->depth)
+        # 2) BFSで (node->depth) - 再帰的に全階層を取得
         # -----------------------------
         depth_map = {}
         visited = set()
         queue = deque()
+        
+        def add_node_and_children(node, depth):
+            if node in visited:
+                return
+            visited.add(node)
+            depth_map[node] = depth
+            
+            # 子ノードを深さ+1で追加
+            for child in node.children:
+                queue.append((child, depth + 1))
+            # フォロワーノードを同じ深さで追加
+            for follower in node.followers:
+                if follower not in visited:
+                    queue.append((follower, depth))
+                    
+        # トップノードから開始
         for top_node in real_tops:
-            queue.append((top_node, 0))
-
-        all_nodes = []
+            add_node_and_children(top_node, 0)
+            
+        # 残りのノードを処理
         while queue:
             node, d = queue.popleft()
-            if node in visited:
-                continue
-            visited.add(node)
-            depth_map[node] = d
-            all_nodes.append(node)
+            add_node_and_children(node, d)
 
-            # 子 & followers を深さ+1
-            for c in node.children:
-                if c not in visited:
-                    queue.append((c, d + 1))
-            for f in node.followers:
-                if f not in visited:
-                    queue.append((f, d + 1))
-
-        if not all_nodes:
+        if not depth_map:
             return graphviz.Digraph("empty")
 
         # -----------------------------
@@ -649,16 +708,15 @@ class BaseNode:
         # -----------------------------
         dot = graphviz.Digraph("final_graph")
         dot.attr("graph", rankdir="TB", ranksep="0.5", nodesep="0.5")
-        # ノードの大きさは変えず、円形固定サイズ
         dot.attr("node",
                 shape="circle",
                 fixedsize="true",
                 width="2.5",
                 height="2",
-                style="filled",       # 塗りつぶし
+                style="filled",
                 fontname="MS Gothic",
                 fontweight="bold",
-                fontsize="15")    # フォントを太字に設定
+                fontsize="15")
         dot.attr("edge", fontname="MS Gothic")
 
         # (START)/(END)は白背景・黒枠で固定
@@ -675,7 +733,7 @@ class BaseNode:
         min_depth = min(depth2nodes.keys())
         max_depth = max(depth2nodes.keys())
 
-        # 半透明用の色リスト (下記は例: #RRGGBB + 80 (hexで約50%透明))
+        # 半透明用の色リスト
         layer_colors = [
             "#ff000030", "#ff800030", "#ffff0030", "#80ff0030", "#00ff0030",
             "#00ff8030", "#00ffff30", "#0080ff30", "#0000ff30", "#8000ff30",
@@ -696,32 +754,31 @@ class BaseNode:
             with dot.subgraph(name=sub_name) as sub:
                 sub.attr(rank="same")
                 cidx = d % len(layer_colors)
-                # RGBA形式
                 fillcol = layer_colors[cidx]
                 edgecol = colors[cidx]
 
                 for n in nodes_d:
-                    # 枠線色は同色? or 黒? => 好みに応じて
-                    # ここでは枠線=黒, 内部半透明 fillcolor
                     sub.node(
                         n.name,
                         label=f"{n.name}\n({n.local_state})",
-                        color=edgecol,      # 枠線の色
-                        fillcolor=fillcol,  # 半透明
+                        color=edgecol,
+                        fillcolor=fillcol,
                         penwidth="5"
                     )
 
-        # (START)&(END) もトップ階層に rank="same" で配置（色は白固定）
+        # (START)&(END) もトップ階層に rank="same" で配置
         with dot.subgraph(name="rank_startend") as sub:
             sub.attr(rank="same")
-            sub.node(start_node)  # 既に設定済みの白背景・黒枠を使用
-            sub.node(end_node)    # 既に設定済みの白背景・黒枠を使用
+            sub.node(start_node)
+            sub.node(end_node)
 
         # -----------------------------
-        # 5) (START)->top, top->(END) constraint="false"
+        # 5) エッジの描画 - 階層構造を明確に
         # -----------------------------
-        top_depth_nodes = depth2nodes[min_depth]
         visited_edges = set()
+        
+        # トップノードと START/END の接続
+        top_depth_nodes = depth2nodes[min_depth]
         for tnode in top_depth_nodes:
             if ("(START)", tnode.name) not in visited_edges:
                 dot.edge("(START)", tnode.name, label="start", constraint="false", penwidth="5")
@@ -730,27 +787,47 @@ class BaseNode:
                 dot.edge(tnode.name, "(END)", label="end", constraint="false", penwidth="5")
                 visited_edges.add((tnode.name, "(END)"))
 
-        # -----------------------------
-        # 6) 子ノード a.child=[b,c,d] => a->b(start), b->c(next), c->d(next), d->a(end)
-        # -----------------------------
-        for node in all_nodes:
-            ch = node.children
-            if len(ch) > 0:
-                e_start = (node.name, ch[0].name)
-                if e_start not in visited_edges:
-                    dot.edge(node.name, ch[0].name, label="detail", penwidth="5", color="#cccccc")
-                    visited_edges.add(e_start)
+        # 階層構造のエッジを描画
+        def add_edges(node):
+            if not node.children:
+                return
+                
+            # 子ノードへの接続
+            for i, child in enumerate(node.children):
+                # 親から最初の子へ
+                if i == 0:
+                    e_start = (node.name, child.name)
+                    if e_start not in visited_edges:
+                        dot.edge(node.name, child.name, label="detail", penwidth="5", color="#cccccc")
+                        visited_edges.add(e_start)
+                
+                # 子ノード間の接続
+                if i < len(node.children) - 1:
+                    e_next = (child.name, node.children[i+1].name)
+                    if e_next not in visited_edges:
+                        dot.edge(child.name, node.children[i+1].name, label="next", penwidth="5", color="black")
+                        visited_edges.add(e_next)
+                
+                # 最後の子から親への戻り
+                if i == len(node.children) - 1:
+                    e_back = (child.name, node.name)
+                    if e_back not in visited_edges:
+                        dot.edge(child.name, node.name, label="back", penwidth="5", color="#cccccc")
+                        visited_edges.add(e_back)
+                
+                # 再帰的に子ノードのエッジを追加
+                add_edges(child)
+            
+            # フォロワーノード間の接続
+            for i, follower in enumerate(node.followers):
+                e_follow = (node.name, follower.name)
+                if e_follow not in visited_edges:
+                    dot.edge(node.name, follower.name, label="followed_by", penwidth="3", style="dashed", color="#666666")
+                    visited_edges.add(e_follow)
 
-                for i in range(len(ch) - 1):
-                    e_mid = (ch[i].name, ch[i+1].name)
-                    if e_mid not in visited_edges:
-                        dot.edge(ch[i].name, ch[i+1].name, label="next", penwidth="5", color="black")
-                        visited_edges.add(e_mid)
-
-                e_end = (ch[-1].name, node.name)
-                if e_end not in visited_edges:
-                    dot.edge(ch[-1].name, node.name, label="back", penwidth="5", color="#cccccc")
-                    visited_edges.add(e_end)
+        # トップノードから開始してエッジを追加
+        for top_node in real_tops:
+            add_edges(top_node)
 
         return dot
 
@@ -854,3 +931,39 @@ class BaseNode:
         if self.enriched_info is None:
             self.enriched_info = self._llm_enrichment.get_enriched_info(self.name)
         return self.enriched_info
+
+    def save_state_snapshot(self):
+        """現在の状態をタイムスタンプ付きで保存"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        base_dir = "debug_logs/state_transitions"
+        os.makedirs(base_dir, exist_ok=True)
+        
+        # グラフの保存
+        dot = self.visualize_graph()
+        graph_path = f"{base_dir}/graph_{timestamp}.png"
+        dot.render(graph_path, format="png", cleanup=True)
+        
+        # 状態情報の保存
+        state_info = {
+            "timestamp": timestamp,
+            "node_name": self.name,
+            "local_state": self.local_state,
+            "children": [c.name for c in self.children],
+            "followers": [f.name for f in self.followers],
+            "description": self.basic_description
+        }
+        
+        state_path = f"{base_dir}/state_{timestamp}.json"
+        with open(state_path, "w", encoding="utf-8") as f:
+            json.dump(state_info, f, ensure_ascii=False, indent=2)
+            
+        print(f"[DEBUG] Saved state snapshot: {timestamp}")
+        
+    def set_local_state(self, new_state: str):
+        """状態を変更し、スナップショットを保存"""
+        old_state = self.local_state
+        self.local_state = new_state
+        
+        # 状態が変化した場合のみスナップショットを保存
+        if old_state != new_state:
+            self.save_state_snapshot()

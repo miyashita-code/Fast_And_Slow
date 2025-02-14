@@ -1,0 +1,12 @@
+{
+  "timestamp": "20250213_230527_917396",
+  "node_name": "prepare_for_toreliha",
+  "local_state": "Init",
+  "children": [
+    "go_get_clothes",
+    "change_clothes",
+    "wait_in_living"
+  ],
+  "followers": [],
+  "description": "デイサービス「トレリハ」に向けて、服を取りに行く、着替える、リビングで待つまでの流れをまとめた活動。"
+}

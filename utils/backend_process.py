@@ -198,28 +198,25 @@ class BackEndProcess:
         self.messages.append(message_content)
 
         # 現在アクティブなコントローラーにのみメッセージを送信
-        async def process_message():
+        def process_message():
             try:
                 print("Processing message...")
                 if self.lending_ear_controller:
                     print("Using lending ear controller")
-                    await self.lending_ear_controller.set_message(message_content)
+                    self.lending_ear_controller.set_message(message_content)
                     print("Message set, requesting next question...")
-                    await self.lending_ear_controller.request_next_question()
+                    self.lending_ear_controller.request_next_question()
                     print("Next question requested")
                 elif self.conversation_controller:
                     print("Using conversation controller")
-                    await self.conversation_controller.set_message(message_content)
+                    self.conversation_controller.set_message(message_content)
             except Exception as e:
                 print(f"Error in process_message: {e}")
                 traceback.print_exc()
 
-        # 新しいイベントループを作成して非同期処理を実行
+        # eventletを使用して非同期処理を実行
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(process_message())
-            loop.close()
+            eventlet.spawn(process_message)
         except Exception as e:
             print(f"Error processing message: {e}")
 
@@ -289,12 +286,12 @@ class BackEndProcess:
             print(f"##### >>> [DEBUG:BackendProcess] Forwarding to conversation_controller: {self.conversation_controller}")
             self.conversation_controller.handle_socket_event('go_detail')
 
-    async def handle_back_to_start(self):
+    def handle_back_to_start(self):
         """back_to_startイベントの処理"""
         print("\n##### >>> [DEBUG:BackendProcess] handle_back_to_start called")
         
         if self.conversation_controller:
             print(f"##### >>> [DEBUG:BackendProcess] Forwarding to conversation_controller: {self.conversation_controller}")
-            await self.conversation_controller.handle_socket_event('back_to_start')
+            self.conversation_controller.handle_socket_event('back_to_start')
         else:
             print("##### >>> [DEBUG:BackendProcess] No conversation_controller available!")

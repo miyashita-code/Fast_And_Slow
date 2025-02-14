@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 import eventlet
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
@@ -59,46 +59,42 @@ def get_enrichment_chain():
 class LLMEnrichment:
     def __init__(self):
         self.chain = get_enrichment_chain()
-        self._enrichment_cache = {}
         
     def enrich_node_info(
         self,
         node_name: str,
         description: str,
-        state_info: Optional[Dict] = None
+        callback: Callable[[Dict[str, Any]], None]
     ) -> None:
-        """ノード情報を拡充し、キャッシュに保存（eventlet対応）"""
+        """ノード情報を拡充（非同期実行）"""
         try:
             input_data = {
                 "node_name": node_name,
                 "description": description,
             }
             
-            # eventletを使用して非同期実行
-            future = eventlet.spawn(self._call_chain, input_data)
-            self._enrichment_cache[node_name] = future
+            # 非同期で生成開始、完了時にコールバックを呼び出す
+            def _enrich_and_callback():
+                result = self._call_chain(input_data)
+                if result:
+                    callback(result)
+            
+            eventlet.spawn(_enrich_and_callback)
             
         except Exception as e:
             print(f"Error in enrich_node_info: {e}")
-    
+
     def _call_chain(self, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """チェーンを実行する同期メソッド"""
         try:
+            print(f"\n[LLM Enrichment] 入力データ: {json.dumps(input_data, ensure_ascii=False, indent=2)}")
             result = self.chain.invoke(input_data)
-            return result.dict() if hasattr(result, 'dict') else result
+            enriched_data = result.dict() if hasattr(result, 'dict') else result
+            print(f"\n[LLM Enrichment] 生成結果: {json.dumps(enriched_data, ensure_ascii=False, indent=2)}")
+            return enriched_data
         except Exception as e:
-            print(f"Error in _call_chain: {e}")
+            print(f"[LLM Enrichment] エラー発生: {e}")
             return None
-            
-    def get_enriched_info(self, node_name: str) -> Optional[Dict[str, Any]]:
-        """キャッシュから拡充情報を取得（非ブロッキング）"""
-        future = self._enrichment_cache.get(node_name)
-        if future and future.ready():
-            try:
-                return future.wait()
-            except Exception:
-                return None
-        return None
 
 PROMPT = """
 認知症の方をサポートするための情報を拡充します。以下の情報を元に、分かりやすく具体的な説明を生成してください。
@@ -107,15 +103,12 @@ PROMPT = """
 ノード名: {node_name}
 基本説明: {description}
 
-###出力フォーマット
+###出力フォーマット。100%従ってください。
 {format_instructions}
 
 ###注意点:
 1. detail_instruction について:
-   - 認知症の方にも理解しやすい、具体的で明確な説明を心がけてください
-   - 専門用語は避け、日常的な表現を使用してください
-   - 必要な情報は省略せず、段階的に説明してください
-   - 長すぎず、かつ必要な情報は確実に含めてください
+   - descriptionは事象の説明ですので，これを少しだけ口語にして，指示のスクリプトにしてください。
 
 2. call_to_action について:
    - 具体的で明確な次のステップを示してください
@@ -126,4 +119,17 @@ PROMPT = """
    - 短く分かりやすい日本語のタイトルをつけてください
    - 専門用語は避け、日常的な表現を使用してください
    - 必要に応じて、具体的な動作や目的を含めてください
+
+###例
+
+入力データ: 
+  "node_name": "go_get_clothes",
+  "description": "奥の部屋からジャージやジャンパーを探して手に取り、自室へ持っていくまでの行動。"
+
+
+生成結果: 
+  "detail_instruction": "奥の部屋に行ってジャージとジャンパーを取ってきます。見つかったら、手に持って着替えのために自分の部屋に戻りましょう！",
+  "call_to_action": "それでは奥の部屋に取りに行きましょう！",
+  "jp_title": "服を取りに行く"
+
 """

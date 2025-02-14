@@ -101,11 +101,11 @@ async def run_semantic_sort(
     try:
         print("[DEBUG] Starting semantic sort...")
         
-        # 1) 依存関係 child -> [parents] にする
+        # 1) 依存関係 parent -> [children] にする (方向を反転)
         rev_map = {}
         for parent, children in adjacency_lists.items():
             for child in children:
-                rev_map.setdefault(child, []).append(parent)
+                rev_map.setdefault(parent, []).append(child)
 
         constraints_str = json.dumps(rev_map, ensure_ascii=False, indent=2)
         print(f"[DEBUG] Constraints: {constraints_str}")
@@ -160,15 +160,19 @@ def topo_sort_with_parallel_check(
     follows に基づくトポロジカルソート
     (sorted_list, has_parallel) を返す
     has_parallel: queueに複数ノードが同時に入ったらTrue
+    
+    A-(follows)->B の時、[A->B]という順序制約とする
     """
     in_degree = {nm: 0 for nm in includes}
     graph = {nm: [] for nm in includes}
 
-    for parent, children in adjacency_lists.items():
-        for child in children:
-            if child in graph:
-                graph[parent].append(child)
-                in_degree[child] += 1
+    # follows関係をそのままの向きで制約に変換
+    for src, follows in adjacency_lists.items():
+        for dst in follows:
+            if src in graph and dst in graph:
+                # A follows B => A->B の順序制約
+                graph[src].append(dst)
+                in_degree[dst] += 1
 
     queue = deque([n for n in includes if in_degree[n] == 0])
     result = []
