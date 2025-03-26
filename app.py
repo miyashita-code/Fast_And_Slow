@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch(socket=True, select=True)  # 必要な部分だけパッチ
+
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_socketio import SocketIO, join_room, leave_room
 from flask_cors import CORS
@@ -12,14 +15,15 @@ import hashlib
 import os
 import json
 import requests
+import traceback
 from dotenv import load_dotenv
 
 import firebase_admin
 from firebase_admin import credentials, messaging
 
-
-from modules import db, UserAuth, BackEndProcess, parse_to_langchain_message_str
+from utils import db, UserAuth, BackEndProcess, parse_to_langchain_message_str
 from neo4j_modules.care_kg_db import CareKgDB
+
 # Load environment variables
 load_dotenv()
 
@@ -51,8 +55,34 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Initialize SocketIO with more detailed logging
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='eventlet',
+    logger=True,
+    engineio_logger=True,
+    ping_timeout=60,
+    ping_interval=25,
+    max_http_buffer_size=1e8  # 100MB
+)
+
+# Socket.IOのデバッグログを有効化
+import logging
+logging.getLogger('socketio').setLevel(logging.DEBUG)
+logging.getLogger('engineio').setLevel(logging.DEBUG)
+logging.getLogger('werkzeug').setLevel(logging.DEBUG)
+
+# ロギングハンドラーの設定
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+
+# ロガーにハンドラーを追加
+logging.getLogger('socketio').addHandler(handler)
+logging.getLogger('engineio').addHandler(handler)
+logging.getLogger('werkzeug').addHandler(handler)
 
 # Dictionary to store backend instances keyed by room ID
 backend_instances = {}
@@ -290,6 +320,10 @@ def get_reminders():
 
     return jsonify([{"time": 1708595280, "tellmessage": "テスト", "detail": "開発テスト用です"}])
 
+def log_socket_event(event_name: str):
+    """ソケットイベントのログを整形して出力"""
+    print(f"\n{'#' * 5} >>> [SOCKET EVENT] {event_name}\n")
+
 @socketio.on('connect')
 def handle_connect(auth=None):
     """
@@ -309,20 +343,67 @@ def handle_connect(auth=None):
 
     print(f"socket connected : {current_user.name}")
 
-
     # join room
     room = request.sid
     join_room(room)
+
     # Initialize the knowledge graph database
-    kg_db = CareKgDB(uri=os.environ.get('NEO4J_URI'), user=os.environ.get('NEO4J_USERNAME'), password=os.environ.get('NEO4J_PASSWORD'), user_uuid=current_user.id)
+    uri = f"neo4j+s://{os.environ.get('NEO4J_URI')}"
+    try:
+        kg_db = CareKgDB(
+            uri=uri,
+            user=os.environ.get('NEO4J_USERNAME'),
+            password=os.environ.get('NEO4J_PASSWORD'),
+            user_uuid=current_user.id
+        )
+        print("Neo4j connection established")
+
+    except Exception as e:
+        print(f"Error connecting to Neo4j: {e}")
+        return jsonify({'message': 'Database connection error'}), 500
 
     # Manage backend process instance for the connected user
     if current_user.id not in backend_instances:
-        bp = BackEndProcess(socketio, room, current_user, db, kg_db)
-        backend_instances[current_user.id] = bp
+        try:
+            bp = BackEndProcess(socketio, room, current_user, db, kg_db)
+            backend_instances[current_user.id] = bp
+            print(f"Created new backend process for user {current_user.name}")
+        except Exception as e:
+            print(f"Error creating backend process: {e}")
+            return jsonify({'message': 'Backend process creation error'}), 500
     else:
         backend_instances[current_user.id].set_room(room)
+        print(f"Updated room for existing backend process: {current_user.name}")
 
+    return True
+
+@socketio.on('websocket_ready')
+def handle_websocket_ready():
+    """WebSocketアップグレード完了後に呼ばれるイベント"""
+    print("\n" + "="*80)
+    print("🔌 WebSocket Ready Event Received")
+    
+    try:
+        # 最後に作成されたbackend_instanceを使用
+        if backend_instances:
+            last_user_id = list(backend_instances.keys())[-1]
+            bp = backend_instances[last_user_id]
+            print(f"👤 Using last created backend process")
+            print("-"*40)
+            bp.on_client_connect(request.sid)
+            print("✅ Successfully notified backend process")
+            return True
+        else:
+            print("⚠️ No backend processes available")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error in handle_websocket_ready: {str(e)}")
+        traceback.print_exc()
+        return False
+        
+    finally:
+        print("="*80)
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -379,27 +460,41 @@ def handle_message(data):
             return jsonify({'message': 'Invalid message format!'}), 400
 
 @socketio.on('go_next_state')
-def handle_go_next_state(data=None):
-    """
-    クライアントからの 'go_next_state' イベントを処理します。
-    """
-    token = request.args.get('token')
-    
-    is_valid, current_user, error_message = check_token(token)
-    if not is_valid:
-        return jsonify({'message': error_message}), 403
+def handle_go_next_state():
+    # eventletのグリーンスレッドで実行されることを保証
+    with eventlet.Timeout(5.0):  # タイムアウトも設定
+        current_thread = threading.current_thread()
+        print(f"\n##### >>> [DEBUG:APP] Current thread: {current_thread.name}")
+        log_socket_event('GO_NEXT_STATE')
+        token = request.args.get('token')
+        
+        print(f"##### >>> [DEBUG:APP] Token: {token}")
+        
+        is_valid, current_user, error_message = check_token(token)
+        if not is_valid:
+            print(f"##### >>> [DEBUG:APP] Token validation failed: {error_message}")
+            return jsonify({'message': error_message}), 403
 
-    if current_user.id in backend_instances:
-        bp = backend_instances[current_user.id]
-        bp.handle_go_next_state()
-    else:
-        return jsonify({'message': 'Backend process not found!'}), 404
+        print(f"##### >>> [DEBUG:APP] User authenticated: {current_user.id}")
+        
+        if current_user.id in backend_instances:
+            bp = backend_instances[current_user.id]
+            print(f"##### >>> [DEBUG:APP] Found backend instance for user: {current_user.id}")
+            # eventletを使ってノンブロッキングで実行
+            print("##### >>> [DEBUG:APP] Spawning run_next_state")
+            eventlet.spawn(bp.handle_go_next_state)  # run_next_stateではなくhandle_go_next_stateを直接呼び出す
+            print("##### >>> [DEBUG:APP] Spawned run_next_state successfully")
+            return "OK"  # 明示的に成功を返す
+        else:
+            print(f"##### >>> [DEBUG:APP] No backend instance found for user: {current_user.id}")
+            return jsonify({'message': 'Backend process not found!'}), 404
 
 @socketio.on('start_lending_ear')
 def handle_start_lending_ear():
     """
     傾聴モードを開始するイベントハンドラー
     """
+    log_socket_event('START_LENDING_EAR')
     print("start lending ear")
     token = request.args.get('token')
     
@@ -415,10 +510,9 @@ def handle_start_lending_ear():
         return jsonify({'message': 'Backend process not found!'}), 404
 
 @socketio.on('start_instruction')
-def handle_start_instruction():
-    """
-    指示モードを開始するイベントハンドラー
-    """
+def handle_start_instruction(data=None):
+    """指示モードを開始するイベントハンドラー"""
+    log_socket_event('START_INSTRUCTION')
     print("start instruction")
     token = request.args.get('token')
     
@@ -428,16 +522,25 @@ def handle_start_instruction():
 
     if current_user.id in backend_instances:
         bp = backend_instances[current_user.id]
-        bp.stop()
-        threading.Thread(target=bp.instruction_run).start()
+        try:
+            bp.stop()  # 同期的に停止
+            # 選択された候補があれば、それを使用
+            selected_candidate = data.get('selected_candidate') if data else None
+            # ここで非同期実行する必要がある
+            eventlet.spawn(bp.instruction_run, selected_candidate)  # 非同期で実行、候補を渡す
+            print("Instruction mode started successfully")
+        except Exception as e:
+            print(f"Error starting instruction mode: {e}")
+            import traceback
+            print(traceback.format_exc())
+            return jsonify({'message': 'Error starting instruction mode'}), 500
     else:
         return jsonify({'message': 'Backend process not found!'}), 404
 
 @socketio.on('go_detail')
-def handle_go_detail(data=None):
-    """
-    クライアントからの 'go_detail' イベントを処理します。
-    """
+def handle_go_detail():
+    """詳細表示イベントを処理"""
+    log_socket_event('GO_DETAIL')
     token = request.args.get('token')
     
     is_valid, current_user, error_message = check_token(token)
@@ -446,15 +549,25 @@ def handle_go_detail(data=None):
 
     if current_user.id in backend_instances:
         bp = backend_instances[current_user.id]
-        bp.handle_go_detail()
+        # eventletを使ってノンブロッキングで実行
+        print("##### >>> [DEBUG:APP] Spawning handle_go_detail")
+        eventlet.spawn(run_go_detail, bp)
+        print("##### >>> [DEBUG:APP] Spawned handle_go_detail successfully")
     else:
         return jsonify({'message': 'Backend process not found!'}), 404
+
+def run_go_detail(bp):
+    """非同期処理をeventletで実行"""
+    print("\n##### >>> [DEBUG:APP] Starting run_go_detail")
+    # 直接実行せず、eventletのスレッドプールで実行
+    print("##### >>> [DEBUG:APP] Spawning handle_go_detail")
+    eventlet.spawn_after(0, bp.handle_go_detail)
+    print("##### >>> [DEBUG:APP] Spawned handle_go_detail successfully")
 
 @socketio.on('back_to_start')
-def handle_back_to_start(data=None):
-    """
-    クライアントからの 'back_to_start' イベントを処理します。
-    """
+def handle_back_to_start():
+    """開始状態に戻るイベントを処理"""
+    log_socket_event('BACK_TO_START')
     token = request.args.get('token')
     
     is_valid, current_user, error_message = check_token(token)
@@ -463,9 +576,52 @@ def handle_back_to_start(data=None):
 
     if current_user.id in backend_instances:
         bp = backend_instances[current_user.id]
-        bp.handle_back_to_start()
+        # 非同期実行
+        eventlet.spawn(bp.handle_back_to_start)
     else:
         return jsonify({'message': 'Backend process not found!'}), 404
 
+@socketio.on('get_candidates')
+def handle_get_candidates():
+    """候補一覧を取得するイベントハンドラー"""
+    print("\n" + "="*80)
+    print("📋 Get Candidates Event Received")
+    
+    try:
+        token = request.args.get('token')
+        is_valid, current_user, error_message = check_token(token)
+        if not is_valid:
+            print("❌ Invalid token")
+            return False
+            
+        if current_user.id in backend_instances:
+            print(f"👤 Processing for user: {current_user.name}")
+            bp = backend_instances[current_user.id]
+            # conversation_controllerを使用
+            if hasattr(bp, 'conversation_controller'):
+                bp.conversation_controller.on_client_connect(request.sid)
+                print("✅ Successfully sent candidates")
+                return True
+            else:
+                print("⚠️ No conversation controller available")
+                return False
+        else:
+            print("⚠️ No backend process found for user")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error in handle_get_candidates: {str(e)}")
+        traceback.print_exc()
+        return False
+        
+    finally:
+        print("="*80)
+
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host="localhost", port=int(os.environ.get('PORT')))
+    socketio.run(
+        app,
+        debug=True,
+        host="localhost",
+        port=int(os.environ.get('PORT'))
+    )
+    print("server started")

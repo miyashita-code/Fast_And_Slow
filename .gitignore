@@ -13,6 +13,8 @@ Errors/
 
 migrations/
 
+*/__pycache__/
+
 
 REMENTIA_OWN_APIKEY.xlsx
 
@@ -20,5 +22,7 @@ REMENTIA_OWN_APIKEY.xlsx
 # END: /c:/Users/miyam/OneDrive/Desktop/dev/GITHUB/FAST_AND_SLOW/Fast_And_Slow/.gitignore
 
 
+.venv/
+.history
 
-
+debug_logs/*
