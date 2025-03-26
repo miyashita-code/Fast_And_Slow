@@ -314,6 +314,34 @@ class CareKgDB:
     get_followers_sync = get_followers
     get_item_description_sync = get_item_description
 
+    def get_activity_top_nodes(self) -> List[Dict[str, Any]]:
+        """Activityクラスのトップノードを取得"""
+        self.debug_print("Starting get_activity_top_nodes")
+        query = """
+        MATCH (n:instance:Activity)
+        WHERE NOT EXISTS((n)<-[:INCLUDES]-(:instance))
+        RETURN n.name as name, 
+               COALESCE(n.detail_description, n.description) as description, 
+               n.time_to_achieve as time_to_achieve, 
+               n.name_jp as name_jp
+        """
+        
+        try:
+            with self.driver.session() as session:
+                result = session.run(query)
+                nodes = [record for record in result]
+                self.debug_print(f"Found {len(nodes)} Activity top nodes")
+                return [{
+                    'name': node['name'],
+                    'description': node['description'] or "No description available",
+                    'time_to_achieve': node['time_to_achieve'],
+                    'name_jp': node['name_jp']
+                } for node in nodes]
+        except Exception as e:
+            self.debug_print(f"Error in get_activity_top_nodes: {e}")
+            traceback.print_exc()
+            return []
+
 
 
 '''

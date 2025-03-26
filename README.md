@@ -1,30 +1,38 @@
 # Fast_And_Slow
 
-クライアント側の高速な応答エージェントとサーバーサイドの深い思考を行うエージェントを組み合わせた二重プロセスシステムです。非同期での推論とプランニングにより、ユーザーとの対話を途切れさせることなく、深い理解に基づいた制御を実現します。
+A dual-process system that combines fast-responding client-side agents with server-side deep thinking agents. Through asynchronous reasoning and planning, it enables deep understanding-based control without interrupting user dialogue.
 
-## システム概要
+![System Architecture Demo](./src/img/demo.png)
 
-### デュアルプロセスアーキテクチャ
-1. **Fast Process（クライアントサイド）**
-   - 即時的なユーザー応答
-   - 基本的な対話管理
-   - ローカルでの状態管理
+## System Overview
 
-2. **Slow Process（サーバーサイド）**
-   - 非同期での深い推論処理
-   - LendingEarModuleによる状況理解と質問生成
-   - Graph Instructionによる段階的プランニング
-   - 状態遷移の管理と最適化
+Fast_And_Slow is a System 2 component (referring to Kahneman's "Fast and Slow" thinking model) designed to support people with dementia through cognitive assistance. It connects to dialogue agents via WebSocket and acts as an intervention system that provides structured planning and reasoning.
 
-### 主要コンポーネント
+The system autonomously collects information, builds knowledge graphs based on care ontology, and leverages the hierarchical structure to pace sequential execution. It adjusts granularity and implements a state machine for dementia-friendly step-by-step interactions.
 
-#### サーバーサイド推論エンジン
+A key feature is the UoT (Uncertainty of Thought-based) closed question generation, which helps understand the situation of people with dementia who have diminished language capabilities.
+
+### Dual Process Architecture
+1. **Fast Process (Client-side)**
+   - Immediate user responses
+   - Basic dialogue management
+   - Local state management
+
+2. **Slow Process (Server-side)**
+   - Asynchronous deep reasoning
+   - Situation understanding and question generation via LendingEarModule
+   - Staged planning through Graph Instruction
+   - State transition management and optimization
+
+### Key Components
+
+#### Server-side Reasoning Engine
 - **LendingEarModule**
-  - 対話履歴からの文脈理解
-  - 適応的な質問生成
-  - 知識グラフを用いた推論
+  - Context understanding from dialogue history
+  - Adaptive question generation
+  - Reasoning using knowledge graphs
 
-- **状態管理システム**
+- **State Management System**
   ```python
   class BackEndProcess:
       def __init__(self, socketio, room, client_data, db, kg_db):
@@ -33,12 +41,12 @@
           self.llm_client = ChatFireworks(...)
   ```
 
-#### 通信制御
-- Socket.IOベースの双方向通信
-- JWT認証による安全な接続管理
-- FCMを利用した非同期通知
+#### Communication Control
+- Socket.IO-based bidirectional communication
+- JWT authentication for secure connection management
+- Asynchronous notifications using FCM
 
-### 状態遷移と制御フロー
+### State Transition and Control Flow
 
 ```mermaid
 sequenceDiagram
@@ -47,101 +55,101 @@ sequenceDiagram
     participant Slow as Slow Process
     participant KG as Knowledge Graph
 
-    User->>Fast: ユーザー入力
-    Fast-->>User: 即時応答
-    Fast->>Slow: 非同期処理要求
+    User->>Fast: User input
+    Fast-->>User: Immediate response
+    Fast->>Slow: Asynchronous processing request
     Fast->>User: 
-    User->>Fast: ユーザー入力
+    User->>Fast: User input
 
     ...
 
-    Slow->>KG: コンテキスト分析
-    KG-->>Slow: 推論結果
-    Slow-->>Fast: 制御指示
-    Fast-->>User: 最適化された応答
+    Slow->>KG: Context analysis
+    KG-->>Slow: Inference results
+    Slow-->>Fast: Control instructions
+    Fast-->>User: Optimized response
 ```
 
-## 概要
-Flask-basedのソケットサーバーで、認証機能を備えています。JWT（JSON Web Token）によるAPIキーの発行とハンドシェイク認証を使用し、PostgreSQLデータベースで認証済みユーザー情報を管理します。
+## Overview
+Flask-based socket server with authentication functionality. It uses JWT (JSON Web Token) for API key issuance and handshake authentication, and manages authenticated user information in a PostgreSQL database.
 
-## 前提条件
+## Prerequisites
 - Python 3.9.16
 - Flask
 - PostgreSQL
 - Firebase Authentication
-- ngrok（開発環境でのトンネリング用）
+- ngrok (for tunneling in development environments)
 
-## インストールとセットアップ
+## Installation and Setup
 
-### Step 1: Python環境のセットアップ
-pyenvを使用してPython 3.9.16をインストールします：
+### Step 1: Set up Python Environment
+Install Python 3.9.16 using pyenv:
 ```bash
 pyenv install 3.9.16
 pyenv local 3.9.16
 ```
 
-### Step 2: 仮想環境の作成
-プロジェクトディレクトリで仮想環境を作成し、有効化します：
+### Step 2: Create Virtual Environment
+Create and activate a virtual environment in the project directory:
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Unix系の場合
-.venv\Scripts\activate     # Windowsの場合
+source .venv/bin/activate  # For Unix-based systems
+.venv\Scripts\activate     # For Windows
 ```
 
-### Step 3: PostgreSQLのインストール
-公式サイトからPostgreSQLをダウンロードしてインストールし、以下のコマンドでデータベースを作成：
+### Step 3: Install PostgreSQL
+Download and install PostgreSQL from the official site, then create a database:
 ```sql
 CREATE DATABASE rementia;
 ```
 
-### Step 4: 環境変数の設定
-.env.exampleを.envにコピーし、必要な環境変数を設定します：
+### Step 4: Set Environment Variables
+Copy .env.example to .env and set the necessary environment variables:
 - OPENAI_API_KEY
 - FIREBASE_API_KEY
 - DATABASE_URL
-- その他必要な認証情報
+- Other required authentication information
 
-### Step 5: 依存パッケージのインストール
+### Step 5: Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 6: データベースのマイグレーション
+### Step 6: Migrate Database
 ```bash
 flask db init
 flask db migrate -m "initial migration"
 flask db upgrade
 ```
 
-### Step 7: ngrokでのトンネリング設定
-開発環境で外部からアクセスできるようにngrokを設定：
+### Step 7: Set up ngrok Tunneling
+Configure ngrok to make the application accessible externally in the development environment:
 ```bash
-ngrok http --domain=<あなたのドメイン> 8080
+ngrok http --domain=<your-domain> 8080
 ```
 
-### Step 8: アプリケーションの起動
+### Step 8: Start the Application
 ```bash
 python app.py
 ```
 
-## 認証フロー
+## Authentication Flow
 
-1. `/login`エンドポイントにアクセスしてログイン
-2. `/create_user`でユーザーを作成し、APIキーを取得
-   - 取得したAPIキーは安全に保管（Androidアプリのsecrets等で使用）
+1. Access the `/login` endpoint to log in
+2. Create a user and obtain an API key via `/create_user`
+   - Store the obtained API key securely (e.g., in Android app secrets)
 
-## 通知機能
+## Notification Functionality
 
-FCM（Firebase Cloud Messaging）を使用した通知システムを実装：
-- `/fcm/console`で通知管理コンソールにアクセス
-- 個別ユーザーまたは全ユーザーへの通知送信が可能
+Notification system implemented using FCM (Firebase Cloud Messaging):
+- Access the notification management console at `/fcm/console`
+- Send notifications to individual users or all users
 
-## WebSocket (Socket.IO) の使用
+## Using WebSocket (Socket.IO)
 
-Socket.IOを使用したリアルタイム通信が可能です：
+Real-time communication is possible using Socket.IO:
 
 ```javascript
-// クライアント側の実装例
+// Client-side implementation example
 const socket = io('http://your-server:8080', {
   auth: {
     token: 'your-jwt-token'
@@ -149,84 +157,84 @@ const socket = io('http://your-server:8080', {
 });
 
 socket.on('connect', () => {
-  console.log('接続成功');
+  console.log('Connection successful');
 });
 
 socket.on('message', (data) => {
-  console.log('メッセージ受信:', data);
+  console.log('Message received:', data);
 });
 ```
 
-## セキュリティ注意事項
-- APIキーは必ず安全に保管してください
-- 本番環境では適切なSSL/TLS証明書を使用してください
-- 環境変数は適切に管理し、公開リポジトリにコミットしないよう注意してください
+## Security Considerations
+- Always store API keys securely
+- Use appropriate SSL/TLS certificates in production environments
+- Manage environment variables properly and avoid committing them to public repositories
 
-## トラブルシューティング
-- データベース接続エラーの場合、DATABASE_URLの形式を確認
-- Firebase認証エラーの場合、認証情報の正確性を確認
-- Socket.IO接続エラーの場合、CORSとポート設定を確認
+## Troubleshooting
+- If you encounter database connection errors, check the DATABASE_URL format
+- For Firebase authentication errors, verify the accuracy of your authentication information
+- For Socket.IO connection errors, check CORS and port settings
 
-ご不明な点がございましたら、イシューを作成してください。
+If you have any questions, please create an issue.
 
-## Socket.IO イベントハンドラーとクライアント通信
+## Socket.IO Event Handlers and Client Communication
 
-### 基本的な通信フロー
+### Basic Communication Flow
 
-1. 認証フロー
+1. Authentication Flow
 ```javascript
-// 1. APIキーを使用してJWTトークンを取得
+// 1. Obtain a JWT token using the API key
 POST /api/token
 Header: {
     'API-Key': 'your-api-key'
 }
 
-// 2. 取得したトークンでSocket.IO接続
+// 2. Connect to Socket.IO with the obtained token
 const socket = io('http://your-server:8080', {
     query: { token: 'your-jwt-token' }
 });
 ```
 
-### 主要なイベントハンドラー
+### Main Event Handlers
 
-1. チャットメッセージ送信
+1. Send Chat Messages
 ```javascript
-// クライアント側
+// Client-side
 socket.emit('chat_message', {
     role: "user",
-    content: "メッセージ内容"
+    content: "Message content"
 });
 
-// サーバーからの応答受信
+// Receive responses from the server
 socket.on('message', (data) => {
-    console.log('受信メッセージ:', data);
+    console.log('Received message:', data);
 });
 ```
 
-2. モード切替
+2. Mode Switching
 ```javascript
-// 傾聴モード開始
+// Start Listening Mode
 socket.emit('start_lending_ear');
 
-// 指示モード開始
+// Start Instruction Mode
 socket.emit('start_instruction');
 ```
 
-3. 状態遷移制御
+3. State Transition Control
 ```javascript
-// 次の状態へ進む
+// Proceed to the next state
 socket.emit('go_next_state');
 
-// 詳細表示へ移行
+// Move to detailed view
 socket.emit('go_detail');
 
-// 開始状態に戻る
+// Return to the starting state
 socket.emit('back_to_start');
 ```
 
-### FCM (Firebase Cloud Messaging) 通知
+### FCM (Firebase Cloud Messaging) Notifications
 
-1. FCMトークン登録
+1. Register FCM Token
 ```javascript
 POST /api/fcm/token_register
 Headers: {
@@ -235,62 +243,96 @@ Headers: {
 }
 ```
 
-2. 通知受信
+2. Receive Notifications
 ```kotlin
-// Androidクライアント側
+// Android client-side
 class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         val notifyDisplayInfo = remoteMessage.data["notifyDisplayInfo"]
         val notifyDetail = remoteMessage.data["notifyDetail"]
         val notifySpeechReading = remoteMessage.data["notifySpeechReading"]
         
-        // 通知の表示処理
+        // Notification display processing
     }
 }
 ```
 
-### エラーハンドリング
+### Error Handling
 
-1. 接続エラー
+1. Connection Errors
 ```javascript
 socket.on('connect_error', (error) => {
-    console.error('接続エラー:', error);
+    console.error('Connection error:', error);
 });
 ```
 
-2. 認証エラー
+2. Authentication Errors
 ```javascript
 socket.on('error', (error) => {
     if (error.message === 'Invalid token') {
-        // トークン再取得処理
+        // Token re-acquisition process
     }
 });
 ```
 
-### 切断処理
+### Disconnection Processing
 ```javascript
-// クライアント側での切断
+// Client-side disconnection
 socket.disconnect();
 
-// 再接続
+// Reconnection
 socket.connect();
 ```
 
-### 注意事項
+### Notes
 
-- WebSocketの接続は、バックグラウンドでも維持されます
-- 長時間の非アクティブ状態後は自動的に再接続を試みます
-- FCMトークンは、アプリの起動時に必ず更新・登録してください
-- メッセージの送受信は非同期で行われ、順序は保証されません
+- WebSocket connections are maintained even in the background
+- Automatic reconnection attempts occur after periods of inactivity
+- Always update and register FCM tokens when the app starts
+- Message sending and receiving are asynchronous, and order is not guaranteed
 
-### デバッグとトラブルシューティング
+### Debugging and Troubleshooting
 
-1. WebSocket接続の確認
+1. Verify WebSocket Connections
 ```bash
-# サーバーログで接続状態を確認
+# Check connection status in server logs
 tail -f server.log | grep "socket"
 ```
 
-2. FCM通知のテスト
-- `/fcm/console`エンドポイントにアクセスして通知をテスト送信
-- 開発環境での通知テストには、実機を使用することを推奨
+2. Test FCM Notifications
+- Access the `/fcm/console` endpoint to send test notifications
+- Using a physical device is recommended for testing notifications in the development environment
+
+## Directory Structure
+```
+.
+├── app.py                # Main application file
+├── requirements.txt      # Python dependencies
+├── .env.example          # Example environment variables
+├── neo4j_modules/        # Neo4j knowledge graph modules
+│   └── care_kg_db.py     # Care knowledge graph database
+├── planning_modules/     # Planning and reasoning modules
+│   ├── lending_ear_modules/  # Modules for listening and understanding
+│   │   └── uot_modules/  # Uncertainty of Thought modules
+│   └── state_machine_modules/ # State machine for interaction control
+├── src/                  # Source files
+│   └── img/              # Images including demo.png
+└── utils/                # Utility functions
+    └── backend_process.py # Backend processing logic
+```
+
+## Quick Start Guide
+
+1. Clone the repository
+2. Set up the environment as described in the Installation section
+3. Start the application
+4. Access the `/login` endpoint to log in
+5. Create a user and obtain an API key
+6. Use the API key in your client application for authentication
+
+## References
+
+- [UoT (Uncertainty of Thought) Framework](https://github.com/zhiyuanhubj/UoT)
+
+## Version
+v0.1.3

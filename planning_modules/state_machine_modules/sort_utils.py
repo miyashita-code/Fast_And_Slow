@@ -161,18 +161,18 @@ def topo_sort_with_parallel_check(
     (sorted_list, has_parallel) を返す
     has_parallel: queueに複数ノードが同時に入ったらTrue
     
-    A-(follows)->B の時、[A->B]という順序制約とする
+    A-(follows)->B の時、[B->A]という順序制約とする（反転）
     """
     in_degree = {nm: 0 for nm in includes}
     graph = {nm: [] for nm in includes}
 
-    # follows関係をそのままの向きで制約に変換
+    # follows関係を反転して制約に変換
     for src, follows in adjacency_lists.items():
         for dst in follows:
             if src in graph and dst in graph:
-                # A follows B => A->B の順序制約
-                graph[src].append(dst)
-                in_degree[dst] += 1
+                # A follows B => B->A の順序制約（反転）
+                graph[dst].append(src)
+                in_degree[src] += 1
 
     queue = deque([n for n in includes if in_degree[n] == 0])
     result = []

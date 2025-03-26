@@ -15,6 +15,7 @@ import hashlib
 import os
 import json
 import requests
+import traceback
 from dotenv import load_dotenv
 
 import firebase_admin
@@ -356,6 +357,7 @@ def handle_connect(auth=None):
             user_uuid=current_user.id
         )
         print("Neo4j connection established")
+
     except Exception as e:
         print(f"Error connecting to Neo4j: {e}")
         return jsonify({'message': 'Database connection error'}), 500
@@ -374,6 +376,34 @@ def handle_connect(auth=None):
         print(f"Updated room for existing backend process: {current_user.name}")
 
     return True
+
+@socketio.on('websocket_ready')
+def handle_websocket_ready():
+    """WebSocketアップグレード完了後に呼ばれるイベント"""
+    print("\n" + "="*80)
+    print("🔌 WebSocket Ready Event Received")
+    
+    try:
+        # 最後に作成されたbackend_instanceを使用
+        if backend_instances:
+            last_user_id = list(backend_instances.keys())[-1]
+            bp = backend_instances[last_user_id]
+            print(f"👤 Using last created backend process")
+            print("-"*40)
+            bp.on_client_connect(request.sid)
+            print("✅ Successfully notified backend process")
+            return True
+        else:
+            print("⚠️ No backend processes available")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error in handle_websocket_ready: {str(e)}")
+        traceback.print_exc()
+        return False
+        
+    finally:
+        print("="*80)
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -480,7 +510,7 @@ def handle_start_lending_ear():
         return jsonify({'message': 'Backend process not found!'}), 404
 
 @socketio.on('start_instruction')
-def handle_start_instruction():
+def handle_start_instruction(data=None):
     """指示モードを開始するイベントハンドラー"""
     log_socket_event('START_INSTRUCTION')
     print("start instruction")
@@ -494,8 +524,10 @@ def handle_start_instruction():
         bp = backend_instances[current_user.id]
         try:
             bp.stop()  # 同期的に停止
+            # 選択された候補があれば、それを使用
+            selected_candidate = data.get('selected_candidate') if data else None
             # ここで非同期実行する必要がある
-            eventlet.spawn(bp.instruction_run)  # 非同期で実行
+            eventlet.spawn(bp.instruction_run, selected_candidate)  # 非同期で実行、候補を渡す
             print("Instruction mode started successfully")
         except Exception as e:
             print(f"Error starting instruction mode: {e}")
@@ -548,6 +580,42 @@ def handle_back_to_start():
         eventlet.spawn(bp.handle_back_to_start)
     else:
         return jsonify({'message': 'Backend process not found!'}), 404
+
+@socketio.on('get_candidates')
+def handle_get_candidates():
+    """候補一覧を取得するイベントハンドラー"""
+    print("\n" + "="*80)
+    print("📋 Get Candidates Event Received")
+    
+    try:
+        token = request.args.get('token')
+        is_valid, current_user, error_message = check_token(token)
+        if not is_valid:
+            print("❌ Invalid token")
+            return False
+            
+        if current_user.id in backend_instances:
+            print(f"👤 Processing for user: {current_user.name}")
+            bp = backend_instances[current_user.id]
+            # conversation_controllerを使用
+            if hasattr(bp, 'conversation_controller'):
+                bp.conversation_controller.on_client_connect(request.sid)
+                print("✅ Successfully sent candidates")
+                return True
+            else:
+                print("⚠️ No conversation controller available")
+                return False
+        else:
+            print("⚠️ No backend process found for user")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error in handle_get_candidates: {str(e)}")
+        traceback.print_exc()
+        return False
+        
+    finally:
+        print("="*80)
 
 if __name__ == '__main__':
     socketio.run(

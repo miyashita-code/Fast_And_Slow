@@ -47,6 +47,7 @@ class BackEndProcess:
         self.conversation_controller = None
         self._ping_greenlet = None
         self.current_thread = None  # スレッド管理用の変数を追加
+        self._current_instruction = None  # 現在のインストラクション状態を保持
         
 
         self.conversation_controller = InstructionController(
@@ -102,21 +103,31 @@ class BackEndProcess:
         
         self.lending_ear_controller.main(self.send_socket, self.get_messages)
 
-    def instruction_run(self):
-        """指示モードの実行"""
+    def instruction_run(self, selected_candidate=None):
+        """
+        指示モードの実行
+        
+        Args:
+            selected_candidate (str, optional): 選択された候補の名前
+        """
+        if selected_candidate:
+            self._current_instruction = selected_candidate
+            self.debug_print(f"設定された指示: {self._current_instruction}")
+            
         if self.is_running:
-            print("Already running, reusing existing process")
+            self.debug_print("既存のプロセスを再利用します")
             return
             
         self.is_running = True
         self.active = True
         self.update_activity()
         
-        print(f"Starting instruction mode in room: {self.room}")
+        self.debug_print(f"指示モードを開始します - Room: {self.room}")
         self.socketio.emit('announce', {'announce': 'Hello, Instruction Started!'}, room=self.room)
         self.send_socket('custom_ping', '1')
+        
         if not self.conversation_controller:
-            print("Creating new instruction controller")
+            self.debug_print("新しい指示コントローラーを作成します")
             self.conversation_controller = InstructionController(
                 send_socket=self.send_socket,
                 kg_db=self.kg_db,
@@ -125,26 +136,33 @@ class BackEndProcess:
             self.conversation_controller.set_callbacks(self.callback_function)
         self.lending_ear_controller = None
         
-        print("Spawning instruction async task")
-        # eventletで非同期処理を実行（ノンブロッキング）
-        gt = eventlet.spawn(self._run_instruction_async)
-        print("Main thread continues...")
-        return gt  # 必要に応じて待機できるように返す
+        self.debug_print("非同期タスクを開始します")
+        gt = eventlet.spawn(self._run_instruction_async, self._current_instruction)
+        self.debug_print("メインスレッドは継続します")
+        return gt
 
-    def _run_instruction_async(self):
-        """eventlet用の非同期実行関数"""
-        print("\n##### >>> [DEBUG:BackendProcess] Starting _run_instruction_async")
+    def _run_instruction_async(self, selected_candidate=None):
+        """
+        eventlet用の非同期実行関数
+        
+        Args:
+            selected_candidate (str, optional): 選択された候補の名前
+        """
+        self.debug_print(f"_run_instruction_async を開始します - 選択された指示: {selected_candidate}")
         self.send_socket('custom_ping', '2')
         
-        # socket_wrapperの代わりに直接send_socketを使用
         self.conversation_controller.send_socket("instruction", {
             "instruction": "インストラクションを始めます。簡単なあいさつの後、指定されたインストラクションを開始する旨を伝えてください。",
             "isLendingEar": False
         })
-        print("##### >>> [DEBUG:BackendProcess] Initial instruction sent")
+        self.debug_print("初期指示を送信しました")
         
-        print(f"##### >>> [DEBUG:BackendProcess] Starting main with controller: {self.conversation_controller}")
+        self.debug_print(f"コントローラーでメイン処理を開始します: {self.conversation_controller}")
         self.conversation_controller.main(self.get_messages)
+        
+        if selected_candidate:
+            self.debug_print(f"選択された指示を使用します: {selected_candidate}")
+            self.conversation_controller.handle_start_instruction(selected_candidate)
 
     def send_socket(self, event: str, data: Any):
         """Socket.IOメッセージを送信"""
@@ -295,3 +313,8 @@ class BackEndProcess:
             self.conversation_controller.handle_socket_event('back_to_start')
         else:
             print("##### >>> [DEBUG:BackendProcess] No conversation_controller available!")
+
+    def debug_print(self, msg: str):
+        """デバッグメッセージを出力"""
+        if self.is_debug:
+            print(f"[BackEndProcess] {msg}")
